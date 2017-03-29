@@ -11,7 +11,6 @@ namespace BundleChecker
     /// </summary>
     public class ABOverview
     {
-
         private Vector2 scrollPos = Vector2.zero;
 
         private int indexRow;
@@ -26,13 +25,18 @@ namespace BundleChecker
         private EView curView = EView.ALLAsset;
         //冗余的bundle资源
         private Dictionary<string , EditorBundleBean> redundancyDic = new Dictionary<string, EditorBundleBean>();
+
+        private string curFolder = "";
+
+        public void Initlization()
+        {
+            curFolder = CurFolderRoot;
+            if (curFolder != Application.dataPath && Directory.Exists(curFolder))
+                findAllBundles();
+        }
+
         public void OnGUI()
         {
-            string curFolder = CurFolderRoot;
-            Dictionary<string, EditorBundleBean> bundles = ABMainChecker.MainChecker.BundleList;
-            if (curFolder != Application.dataPath && bundles.Count ==0)
-                findAllBundles();
-
             NGUIEditorTools.DrawHeader("检测AssetBundle");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset Bundles", GUILayout.Width(120));
@@ -56,7 +60,7 @@ namespace BundleChecker
 
             //Overview
             NGUIEditorTools.DrawSeparator();
-            drawOverview(bundles);
+            drawOverview();
 
             switch (curView)
             {
@@ -75,7 +79,7 @@ namespace BundleChecker
         /// <summary>
         /// 总览
         /// </summary>
-        private void drawOverview(Dictionary<string, EditorBundleBean> bundles)
+        private void drawOverview()
         {
             ABMainChecker mainCheckr = ABMainChecker.MainChecker;
             GUILayout.BeginHorizontal();
@@ -308,7 +312,6 @@ namespace BundleChecker
             loadCount = (float)fileArr.Length;
             loadIndex = 0;
 
-            string dataPath = Application.dataPath;
             for (int i = 0 , maxCount = fileArr.Length; i < maxCount; i++)
             {
                 string abPath = fileArr[i].Replace("\\", "/");

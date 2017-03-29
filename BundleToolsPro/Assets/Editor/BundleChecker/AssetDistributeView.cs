@@ -19,10 +19,10 @@ namespace BundleChecker
         private GUIStyle titleLabStyle = new GUIStyle();
         public AssetDistributeView()
         {
-            titleLabStyle.alignment = TextAnchor.MiddleCenter;
-            titleLabStyle.fontSize = 25;
-            titleLabStyle.fontStyle = FontStyle.Bold;
-            titleLabStyle.richText = true;
+//            titleLabStyle.alignment = TextAnchor.MiddleCenter;
+//            titleLabStyle.fontSize = 25;
+//            titleLabStyle.fontStyle = FontStyle.Bold;
+//            titleLabStyle.richText = true;
         }
         public void OnGUI()
         {
