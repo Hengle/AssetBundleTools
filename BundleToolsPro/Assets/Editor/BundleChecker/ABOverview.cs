@@ -1,8 +1,11 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Remoting.Messaging;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace BundleChecker
 {
@@ -28,8 +31,13 @@ namespace BundleChecker
 
         private string curFolder = "";
 
-        public void Initlization()
+        private bool isInit = false;
+
+        private void initlization()
         {
+            if (isInit) return;
+
+            isInit = true;
             curFolder = CurFolderRoot;
             if (curFolder != Application.dataPath && Directory.Exists(curFolder))
                 findAllBundles();
@@ -37,6 +45,8 @@ namespace BundleChecker
 
         public void OnGUI()
         {
+            this.initlization();
+
             NGUIEditorTools.DrawHeader("检测AssetBundle");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset Bundles", GUILayout.Width(120));
@@ -50,6 +60,7 @@ namespace BundleChecker
             {
                 string path = EditorUtility.OpenFolderPanel("Select", CurFolderRoot , "");
                 CurFolderRoot = path;
+                curFolder = path;
             }
             GUILayout.EndHorizontal();
 
@@ -106,15 +117,46 @@ namespace BundleChecker
         }
 
         #region --------------All AssetBundle------------------
-        
+
+        private string searchFilter = ""; //搜索文件
+        private EditorBundleBean[] bundleArr = null;
+        private int sortCount = 1;
         private void drawAllAssetBundle()
         {
             //all assets
             NGUIEditorTools.DrawHeader("All AssetBundle");
+            //Search
+            GUILayout.BeginHorizontal();
+            {
+                searchFilter = EditorGUILayout.TextField("", searchFilter, "SearchTextField", GUILayout.Width(Screen.width - 20f));
+
+                if (GUILayout.Button("", "SearchCancelButton", GUILayout.Width(18f)))
+                {
+                    searchFilter = "";
+                    GUIUtility.keyboardControl = 0;
+                }
+            }
+            GUILayout.EndHorizontal();
+
+            if (bundleArr == null)
+            {
+                var bundleDic = ABMainChecker.MainChecker.BundleList;
+                bundleArr = new EditorBundleBean[bundleDic.Count];
+                bundleDic.Values.CopyTo(bundleArr , 0);
+
+                Array.Sort(bundleArr);
+            }
 
             GUILayout.BeginHorizontal();
-            GUILayout.Toggle(false, "AssetBundle 名称", "ButtonLeft", GUILayout.Width(200));
-            GUILayout.Toggle(false, "依赖数量", "ButtonMid", GUILayout.Width(80));
+            if (GUILayout.Toggle(false, "AssetBundle 名称", "ButtonLeft", GUILayout.Width(200)))
+            {
+                Array.Sort(bundleArr);
+            }
+            if (GUILayout.Toggle(false, "依赖数量", "ButtonMid", GUILayout.Width(80)))
+            {
+                sortCount *= -1;
+                Array.Sort(bundleArr , (x, y) => x.GetAllDependencies().Count > y.GetAllDependencies().Count ? sortCount : sortCount * -1);
+            }
             GUILayout.Toggle(false, "具体依赖文件", "ButtonMid");
             GUILayout.Toggle(false, "详细", "ButtonRight", GUILayout.Width(80));
             GUILayout.EndHorizontal();
@@ -122,9 +164,12 @@ namespace BundleChecker
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             indexRow = 0;
 
-            foreach (EditorBundleBean bundle in ABMainChecker.MainChecker.BundleList.Values)
+            foreach (EditorBundleBean bundle in bundleArr)
             {
-                drawRowBundle(bundle);
+                if (string.IsNullOrEmpty(searchFilter) || bundle.BundleName.Contains(searchFilter))
+                {
+                    drawRowBundle(bundle);
+                }
             }
             GUILayout.EndScrollView();
         }
@@ -305,8 +350,10 @@ namespace BundleChecker
             if (!Directory.Exists(rootPath)) return;
 
             string[] fileArr = Directory.GetFiles(rootPath, "*" + ABMainChecker.AssetBundleSuffix, SearchOption.AllDirectories);
+
+            ABMainChecker.MainChecker.Clear();
+
             Dictionary<string , EditorBundleBean> bundleDic = ABMainChecker.MainChecker.BundleList;
-            bundleDic.Clear();
 
             EditorUtility.DisplayProgressBar("查找中", "正在查找文件...", 1.0f / fileArr.Length);
             loadCount = (float)fileArr.Length;
@@ -314,11 +361,11 @@ namespace BundleChecker
 
             for (int i = 0 , maxCount = fileArr.Length; i < maxCount; i++)
             {
-                string abPath = fileArr[i].Replace("\\", "/");
-                if (!bundleDic.ContainsKey(abPath))
+                string assetPath = GetRelativeAssetPath(fileArr[i]);
+                if (!bundleDic.ContainsKey(assetPath))
                 {
-                    EditorBundleBean bundleBean = new EditorBundleBean(abPath);
-                    bundleDic[bundleBean.BundlePath] = bundleBean;
+                    EditorBundleBean bundleBean = new EditorBundleBean(assetPath);
+                    bundleDic[assetPath] = bundleBean;
                     loadAssetBundle(bundleBean);
                 }
             }
@@ -350,6 +397,12 @@ namespace BundleChecker
             EditorUtility.DisplayProgressBar("分析中", "分析AssetBundle资源...", loadIndex / loadCount);
 
             string manifest = string.Concat(bundle.BundlePath, ".manifest");
+            if (!File.Exists(manifest))
+            {
+                Debug.LogWarning("Cant find manifest ! " + manifest + "[" + bundle.BundleName + "]");
+                return;
+            }
+
             manifest = File.ReadAllText(manifest);
             string[] manifestInfoArr = manifest.Split('\n');
 
@@ -360,12 +413,12 @@ namespace BundleChecker
             ABMainChecker mainCheck = ABMainChecker.MainChecker;
             foreach (string assetPath in bundInfo)
             {
-                string assetName = Path.GetFileName(assetPath);
+                //string assetName = Path.GetFileName(assetPath);
                 ResoucresBean rb = null;
-                if (!mainCheck.ResourceDic.TryGetValue(assetName , out rb))
+                if (!mainCheck.ResourceDic.TryGetValue(assetPath, out rb))
                 {
                     rb = new ResoucresBean(assetPath);
-                    mainCheck.ResourceDic[assetName] = rb;
+                    mainCheck.ResourceDic[assetPath] = rb;
                 }
 
                 if(!rb.IncludeBundles.Contains(bundle))
@@ -378,9 +431,11 @@ namespace BundleChecker
             bundInfo = getBundleInfo(manifestInfoArr, "Dependencies:");
             Dictionary<string, EditorBundleBean> bundles = ABMainChecker.MainChecker.BundleList;
             List<EditorBundleBean> depBundles = bundle.GetAllDependencies();
-            foreach (string assetPath in bundInfo)
+
+            foreach (string curAssetPath in bundInfo)
             {
                 EditorBundleBean depBundle = null;
+                string assetPath = GetRelativeAssetPath(curAssetPath);
                 if (!bundles.TryGetValue(assetPath, out depBundle))
                 {
                     depBundle = new EditorBundleBean(assetPath);
@@ -410,7 +465,7 @@ namespace BundleChecker
                 if (isStart)
                 {
                     if (!str.StartsWith("-")) break;
-                    infos.Add(str.Replace("-","").Trim());
+                    infos.Add(str.Substring(2).Trim());
                 }
 
                 if (str.StartsWith(key))
@@ -432,6 +487,18 @@ namespace BundleChecker
                 EditorPrefs.SetString("ABChecker_OverView_defultFolder", value);
             }
         }
+
+
+        public static string GetRelativeAssetPath(string path)
+        {
+            string assetPath = path.Replace("\\", "/");
+            if (!assetPath.StartsWith("Assets/"))
+            {
+                int index = assetPath.IndexOf("Assets/");
+                assetPath = assetPath.Substring(index).Replace("\\", "/");
+            }
+            return assetPath;
+        } 
     }
 
 

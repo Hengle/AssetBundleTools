@@ -16,22 +16,14 @@ namespace BundleChecker
 
         private ResoucresBean curRes;
        
-        private GUIStyle titleLabStyle = new GUIStyle();
-        public AssetDistributeView()
-        {
-//            titleLabStyle.alignment = TextAnchor.MiddleCenter;
-//            titleLabStyle.fontSize = 25;
-//            titleLabStyle.fontStyle = FontStyle.Bold;
-//            titleLabStyle.richText = true;
-        }
         public void OnGUI()
         {
-            GUILayout.Label(string.Format("<color=white>[{1}]<color=green>{0}</color></color>", curRes.Name , curRes.ResourceType), titleLabStyle);
 
-            if(curRes.Dependencies.Count > 0)
+            if (curRes.Dependencies.Count > 0)
+            {
                 drawDependencieAsset();
-
-            NGUIEditorTools.DrawSeparator();
+                NGUIEditorTools.DrawSeparator();
+            }
 
             drawAllBundles();
         }
@@ -41,7 +33,9 @@ namespace BundleChecker
         {
             curRes = res;
 
-            ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.AssetDistributeView);
+            string title = string.Format("<color=white>[{1}]<color=green>{0}</color></color>", curRes.Name, curRes.ResourceType);
+
+            ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.AssetDistributeView , title);
         }
         /// <summary>
         /// 冗余的资源

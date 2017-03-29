@@ -32,7 +32,7 @@ namespace BundleChecker.ResoucreAttribute
         public TextureAttribute(ResoucresBean res) : base(res)
         {
             TextureImporter textImporter = AssetImporter.GetAtPath(res.AssetPath) as TextureImporter;
-
+            
             Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(res.AssetPath);
             this.Width = tex.width;
             this.Height = tex.height;
@@ -57,19 +57,19 @@ namespace BundleChecker.ResoucreAttribute
             return text.width*text.height*pixls / 1024;
         }
 
-        protected override string getPropertyValue(string property)
+        protected override string[] getPropertyValue(string property)
         {
-            if (property == WIDTH) return Convert.ToString(this.Width);
-            if (property == HEIGHT) return Convert.ToString(this.Height);
+            if (property == WIDTH) return new[] { Convert.ToString(this.Width)};
+            if (property == HEIGHT) return new[] { Convert.ToString(this.Height)};
             if (property == MEMORYSIZE)
             {
                 float mb = this.MemorySize/1024;
-                if (mb > 1) return string.Format("{0:F}MB", mb);
-                return string.Format("{0:F}KB" ,this.MemorySize);
+                if (mb > 1) return new[] { string.Format("{0:F}MB", mb)};
+                return new[] { string.Format("{0:F}KB" ,this.MemorySize)};
             }
-            if (property == FORMAT) return this.Format;
-            if (property == MIPMAP) return Convert.ToString(this.MipMap);
-            if (property == READWRITE) return Convert.ToString(this.RW);
+            if (property == FORMAT) return new[] { this.Format};
+            if (property == MIPMAP) return new[] { Convert.ToString(this.MipMap)};
+            if (property == READWRITE) return new[] { Convert.ToString(this.RW)};
 
             return base.getPropertyValue(property);
         }

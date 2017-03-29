@@ -13,11 +13,11 @@ namespace BundleChecker
         //排除文件
         public static HashSet<string> ExcludeFiles = new HashSet<string>(new []{".cs"});   
 
-//        private ABOverview overview = new ABOverview();
+        private ABOverview overview = new ABOverview();
         
-//        private BundleDetailView bundleDetailView = new BundleDetailView();
-//
-//        private AssetDistributeView assetView = new AssetDistributeView();
+        private BundleDetailView bundleDetailView = new BundleDetailView();
+
+        private AssetDistributeView assetView = new AssetDistributeView();
 
         public enum EView
         {
@@ -37,73 +37,71 @@ namespace BundleChecker
         /// 丢失的资源
         /// </summary>
         public List<ResoucresBean> MissingRes = new List<ResoucresBean>();
-         
+
+        private GUIStyle titleLabStyle = new GUIStyle();
+        private string subPageTitle = "";
         [MenuItem("AB冗余检测/Bundle Checker")]
         public static void ShowChecker()
         {
-            //            MainChecker = EditorWindow.GetWindow<ABMainChecker>();
-
-            EditorWindow.GetWindow<ABMainChecker>().Show();
-            //            MainChecker.Init();
-            //            MainChecker =  (ABMainChecker)EditorWindow.GetWindowWithRect(typeof(ABMainChecker) , 
-            //                                                new Rect(Screen.width*0.25f, Screen.height*0.25f, 
-            //                                                Screen.width*0.5f,Screen.height*0.5f));
-
-            //            EditorWindow.GetWindowWithRect<ABMainChecker>(new Rect(Screen.width*0.25f, Screen.height*0.25f, Screen.width*0.5f,Screen.height*0.5f));
+            MainChecker = EditorWindow.GetWindow<ABMainChecker>();
+            MainChecker.OnInit();
+            MainChecker.Show();
         }
 
-
-        [MenuItem("AB冗余检测/Test Checker")]
-        public static void ShowCheckerTest()
+        private void OnInit()
         {
-            EditorWindow.GetWindow<TestWindow>().Show();
+            titleLabStyle.alignment = TextAnchor.MiddleCenter;
+            titleLabStyle.fontSize = 25;
+            titleLabStyle.fontStyle = FontStyle.Bold;
+            titleLabStyle.richText = true;
         }
 
-        private void Start()
+
+        private void OnGUI()
         {
-            Debug.Log("why ---------->wtf !!!");
-//            this.overview.Initlization();
+            switch (curView)
+            {
+                    case EView.OverView:
+                    overview.OnGUI();
+                    break;
+                default:
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("< Back" , GUILayout.Width(100) , GUILayout.Height(30)))
+                    {
+                        curView = EView.OverView;
+                    }
+
+                    GUILayout.Label(subPageTitle , titleLabStyle);
+                    GUILayout.Space(100);
+                    GUILayout.EndHorizontal();
+                    
+                    GUILayout.Space(10);
+                    NGUIEditorTools.DrawSeparator();
+                    break;
+            }
+
+            switch (curView)
+            {
+                case EView.BundleDetailView:
+                    bundleDetailView.OnGUI();
+                    break;
+                case EView.AssetDistributeView:
+                    assetView.OnGUI();
+                    break;
+            }
+            GUILayout.Space(5);
         }
 
-        void OnGUI()
-        {
-            GUILayout.Label("wtf");
-//            switch (curView)
-//            {
-//                    case EView.OverView:
-//                    overview.OnGUI();
-//                    break;
-//                default:
-//                    if (GUILayout.Button("< Back" , GUILayout.Width(100) , GUILayout.Height(30)))
-//                    {
-//                        curView = EView.OverView;
-//                    }
-//                    break;
-//            }
-//
-//            switch (curView)
-//            {
-//                case EView.BundleDetailView:
-//                    bundleDetailView.OnGUI();
-//                    break;
-//                case EView.AssetDistributeView:
-//                    assetView.OnGUI();
-//                    break;
-//            }
-        }
+        public BundleDetailView DetailBundleView { get { return bundleDetailView;} }
 
-//        public BundleDetailView DetailBundleView { get { return bundleDetailView;} }
-//
-//        public AssetDistributeView AssetView { get { return assetView; } }
+        public AssetDistributeView AssetView { get { return assetView; } }
 
-        public BundleDetailView DetailBundleView { get { return null; } }
-
-        public AssetDistributeView AssetView { get { return null; } }
-
-        public void SetCurrentView(EView view)
+        public void SetCurrentView(EView view , string title)
         {
             this.curView = view;
+            this.subPageTitle = title;
         }
+
 
         public float Width
         {
@@ -113,6 +111,13 @@ namespace BundleChecker
         public float Height
         {
             get { return MainChecker.position.height;}
+        }
+
+        public void Clear()
+        {
+            this.ResourceDic.Clear();
+            this.BundleList.Clear();
+            this.MissingRes.Clear();
         }
     }
 }

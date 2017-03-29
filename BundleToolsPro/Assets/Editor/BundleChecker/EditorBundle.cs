@@ -1,14 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using BundleChecker.ResoucreAttribute;
 using UnityEditor;
-using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace BundleChecker
 {
     
 
-    public class EditorBundleBean
+    public class EditorBundleBean : IComparable<EditorBundleBean>
     {
         //包含资源
         private List<ResoucresBean> containeRes = new List<ResoucresBean>(); 
@@ -50,7 +52,13 @@ namespace BundleChecker
         public List<ResoucresBean> GetAllAssets()
         {
             return containeRes;
-        } 
+        }
+
+        public int CompareTo(EditorBundleBean other)
+        {
+            CaseInsensitiveComparer cic = new CaseInsensitiveComparer();
+            return cic.Compare(BundleName, other.BundleName);
+        }
     }
 
 
@@ -112,7 +120,7 @@ namespace BundleChecker
         /// <summary>
         /// 资源的原始数据
         /// </summary>
-        public ABaseResource RawRes { get; set; }
+        public ABaseResource RawRes { get; private set; }
         #endregion
         /// <summary>
         /// 所属Bundle
@@ -128,7 +136,7 @@ namespace BundleChecker
             this.Name = Path.GetFileName(path);
             this.ResourceType = EResoucresTypes.GetResourceType(Path.GetExtension(path));
 
-            this.loadRawAsset();
+            if(File.Exists(path))   this.loadRawAsset();
         }
 
 
@@ -138,6 +146,12 @@ namespace BundleChecker
             {
                 case EResoucresTypes.TextureType:
                     RawRes = new TextureAttribute(this);
+                    break;
+                case EResoucresTypes.MatrialType:
+                    RawRes = new MaterialAttribute(this);
+                    break;
+                case EResoucresTypes.ShaderType:
+                    RawRes = new ShaderAttribute(this);
                     break;
             }
         }
@@ -161,11 +175,11 @@ namespace BundleChecker
                 if(ABMainChecker.ExcludeFiles.Contains(suffix)) continue;
 
                 ResoucresBean rb = null;
-                if (!resDic.TryGetValue(depAssetName, out rb))
+                if (!resDic.TryGetValue(depAssetPath, out rb))
                 {
                     rb = new ResoucresBean(depAssetPath);
                     rb.IsMissing = true;
-                    resDic[depAssetName] = rb;
+                    resDic[depAssetPath] = rb;
 
                     ABMainChecker.MainChecker.MissingRes.Add(rb);
                 }
