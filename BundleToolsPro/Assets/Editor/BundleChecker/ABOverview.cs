@@ -20,11 +20,12 @@ namespace BundleChecker
 
         private enum EView
         {
-            ALLAsset , RedundancyAssets , Scripte
+            ALLAsset , RedundancyAssets , MissingAsset
         }
 
         private EView curView = EView.ALLAsset;
-
+        //冗余的bundle资源
+        private Dictionary<string , EditorBundleBean> redundancyDic = new Dictionary<string, EditorBundleBean>();
         public void OnGUI()
         {
             string curFolder = CurFolderRoot;
@@ -32,6 +33,7 @@ namespace BundleChecker
             if (curFolder != Application.dataPath && bundles.Count ==0)
                 findAllBundles();
 
+            NGUIEditorTools.DrawHeader("检测AssetBundle");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset Bundles", GUILayout.Width(120));
             
@@ -64,8 +66,8 @@ namespace BundleChecker
                     case EView.RedundancyAssets:
                     drawAllRedundancyAsset();
                     break;
-                    case EView.Scripte:
-
+                    case EView.MissingAsset:
+                    drawMissingAsset();
                     break;
             }
         }
@@ -84,15 +86,17 @@ namespace BundleChecker
                 
             }
 
-            if (GUILayout.Button(string.Format("冗余资源数：{0}", mainCheckr.RedundancyDic.Count), GUILayout.Height(50)))
+            if (GUILayout.Button(string.Format("冗余资源数：{0}", redundancyDic.Count), GUILayout.Height(50)))
             {
                 scrollPos = Vector2.zero;
                 curView = EView.RedundancyAssets;
             }
 
-            if (GUILayout.Button(string.Format("脚本资源数：{0}", bundles.Count), GUILayout.Height(50)))
+            if (GUILayout.Button(string.Format("丢失AB数：{0}", mainCheckr.MissingRes.Count), GUILayout.Height(50)))
             {
                 scrollPos = Vector2.zero;
+                selectAsset = "";
+                curView = EView.MissingAsset;
             }
             GUILayout.EndHorizontal();
         }
@@ -141,13 +145,12 @@ namespace BundleChecker
                 EditorBundleBean depBundle = dependencies[i];
                 if (i % column == 0)
                 {
-                    endIndex = i + column;
+                    endIndex = i + column - 1;
                     GUILayout.BeginHorizontal();
                 }
                 if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(150)))
                 {
                     ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
-                    ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.BundleDetailView);
                 }
                 if (i == endIndex)
                 {
@@ -163,7 +166,6 @@ namespace BundleChecker
             if (GUILayout.Button("GO" , GUILayout.Width(50) , GUILayout.Height(25)))
             {
                 ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(bundle);
-                ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.BundleDetailView);
             }
             GUILayout.Space(15);
             GUILayout.EndHorizontal();
@@ -177,72 +179,118 @@ namespace BundleChecker
         private void drawAllRedundancyAsset()
         {
             //all assets
-            NGUIEditorTools.DrawHeader("All AssetBundle");
+            NGUIEditorTools.DrawHeader("All Redundancy AssetBundle");
 
             GUILayout.BeginHorizontal();
-            GUILayout.Toggle(false, "Asset 名称", "ButtonLeft", GUILayout.Width(200));
-            GUILayout.Toggle(false, "依赖数量", "ButtonMid", GUILayout.Width(80));
-            GUILayout.Toggle(false, "所属AssetBundle文件", "ButtonMid");
+            GUILayout.Toggle(false, "AssetBundle 名称", "ButtonLeft", GUILayout.Width(200));
+            GUILayout.Toggle(false, "Mesh", "ButtonMid");
+            GUILayout.Toggle(false, "Material", "ButtonMid");
+            GUILayout.Toggle(false, "Texture", "ButtonMid");
+            GUILayout.Toggle(false, "Shader", "ButtonMid");
             GUILayout.Toggle(false, "详细", "ButtonRight", GUILayout.Width(80));
             GUILayout.EndHorizontal();
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             indexRow = 0;
-
-            Dictionary<string, List<EditorBundleBean>> redundancy = ABMainChecker.MainChecker.RedundancyDic;
-            foreach (string assetPath in redundancy.Keys)
+            foreach (EditorBundleBean bundle in redundancyDic.Values)
             {
-                drawRowRedundancyAsset(assetPath , redundancy[assetPath]);
+                drawRowRedundancyAsset(bundle);
             }
             GUILayout.EndScrollView();
         }
 
-        private void drawRowRedundancyAsset(string asset , List<EditorBundleBean> bundles)
+        private void drawRowRedundancyAsset(EditorBundleBean bundle)
         {
             indexRow++;
             GUI.backgroundColor = indexRow % 2 == 0 ? Color.white : new Color(0.8f, 0.8f, 0.8f);
             GUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(20f));
             GUI.backgroundColor = Color.white;
             //名称
-            GUILayout.Label(Path.GetFileName(asset), GUILayout.Width(200));
-            //依赖数量
-            GUILayout.Label(bundles.Count.ToString(), GUILayout.Width(80));
-            //具体的ab名称
-            GUILayout.BeginVertical();
-            int column = Mathf.Max(1, (int)((ABMainChecker.MainChecker.Width - 380) / 150));
-            int endIndex = 0;
-            for (int i = 0, maxCount = bundles.Count; i < maxCount; i++)
-            {
-                EditorBundleBean depBundle = bundles[i];
-                if (i % column == 0)
-                {
-                    endIndex = i + column;
-                    GUILayout.BeginHorizontal();
-                }
-                if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(150)))
-                {
-                    ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
-                    ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.BundleDetailView);
-                }
-                if (i == endIndex)
-                {
-                    endIndex = 0;
-                    GUILayout.EndHorizontal();
-                }
-            }
-            if (endIndex != 0) GUILayout.EndHorizontal();
-            GUILayout.EndVertical();
-
+            GUILayout.Label(bundle.BundleName, GUILayout.Width(200));
+            //Mesh
+            int count = getAssetDedundancyCount(bundle, EResoucresTypes.MeshType);
+            GUILayout.Label(count.ToString());
+            //material
+            count = getAssetDedundancyCount(bundle, EResoucresTypes.MatrialType);
+            GUILayout.Label(count.ToString());
+            //Texture
+            count = getAssetDedundancyCount(bundle, EResoucresTypes.TextureType);
+            GUILayout.Label(count.ToString());
+            //Shader
+            count = getAssetDedundancyCount(bundle, EResoucresTypes.ShaderType);
+            GUILayout.Label(count.ToString());
             //查询
             GUILayout.Space(15);
             if (GUILayout.Button("GO", GUILayout.Width(50), GUILayout.Height(25)))
             {
-//                ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(bundle);
-                ABMainChecker.MainChecker.SetCurrentView(ABMainChecker.EView.AssetDistributeView);
+                ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(bundle);
             }
             GUILayout.Space(15);
             GUILayout.EndHorizontal();
         }
+
+        /// <summary>
+        /// 冗余资源被反复引用的次数
+        /// </summary>
+        /// <param name="bundle"></param>
+        /// <param name="resType"></param>
+        /// <returns></returns>
+        private int getAssetDedundancyCount(EditorBundleBean bundle, string resType)
+        {
+            int count = 0;
+            List<ResoucresBean> resList = bundle.GetAllAssets();
+            foreach (ResoucresBean res in resList)
+            {
+                if (resType == res.ResourceType) count ++;
+            }
+            return count;
+        }
+        #endregion
+
+
+        #region ----------------------丢失的Bundle资源----------------------------------------
+
+        private string selectAsset = "";
+        private void drawMissingAsset()
+        {
+            //all assets
+            NGUIEditorTools.DrawHeader("All Missing AssetBundle");
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Toggle(false, "Asset 名称", "ButtonLeft", GUILayout.Width(200));
+            GUILayout.Toggle(false, "类型", "ButtonMid" , GUILayout.Width(100));
+            GUILayout.Toggle(false, "路径", "ButtonRight");
+            GUILayout.EndHorizontal();
+
+            scrollPos = GUILayout.BeginScrollView(scrollPos);
+            indexRow = 0;
+            List<ResoucresBean> missingResList = ABMainChecker.MainChecker.MissingRes;
+            foreach (ResoucresBean res in missingResList)
+            {
+                indexRow++;
+                GUI.backgroundColor = indexRow % 2 == 0 ? Color.white : new Color(0.8f, 0.8f, 0.8f);
+                GUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(20f));
+                GUI.backgroundColor = Color.white;
+
+                bool isCheck = false;
+                //名称
+                GUI.color = selectAsset == res.Name ? Color.green : Color.white;
+                isCheck = GUILayout.Button(res.Name, EditorStyles.label, GUILayout.Width(200));
+                //type
+                GUILayout.Label(res.ResourceType , GUILayout.Width(100));
+                //Path
+                isCheck = (GUILayout.Button(res.AssetPath , EditorStyles.label) ? true : isCheck);
+                GUI.color = Color.white;
+                if (isCheck)
+                {
+                    selectAsset = res.Name;
+                    Selection.activeObject = AssetDatabase.LoadAssetAtPath<Object>(res.AssetPath);
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndScrollView();
+        }
+
         #endregion
         /// <summary>
         /// 查找指定目录的Bundles
@@ -250,6 +298,8 @@ namespace BundleChecker
         private void findAllBundles()
         {
             string rootPath = CurFolderRoot;
+            if (!Directory.Exists(rootPath)) return;
+
             string[] fileArr = Directory.GetFiles(rootPath, "*" + ABMainChecker.AssetBundleSuffix, SearchOption.AllDirectories);
             Dictionary<string , EditorBundleBean> bundleDic = ABMainChecker.MainChecker.BundleList;
             bundleDic.Clear();
@@ -271,12 +321,22 @@ namespace BundleChecker
             }
             EditorUtility.DisplayProgressBar("分析中", "分析冗余", 1.0f);
 
-            Dictionary<string, List<EditorBundleBean>> redundancyDic = ABMainChecker.MainChecker.RedundancyDic;
-            List<string> removeList = new List<string>();
-            foreach (string key in redundancyDic.Keys)
-                if(redundancyDic[key].Count <= 1)    removeList.Add(key);
-            foreach (string remove in removeList)
-                redundancyDic.Remove(remove);
+            Dictionary<string, ResoucresBean> resDic = ABMainChecker.MainChecker.ResourceDic;
+            ResoucresBean[] resArr = new ResoucresBean[resDic.Count];
+            resDic.Values.CopyTo(resArr , 0);
+
+            redundancyDic.Clear();
+            foreach (ResoucresBean res in resArr)
+            {
+                res.CheckDependencies();
+
+                if (res.IncludeBundles.Count <= 1) continue;
+
+                foreach (EditorBundleBean bundle in res.IncludeBundles)
+                {
+                    redundancyDic[bundle.BundleName] = bundle;
+                }
+            }
             EditorUtility.ClearProgressBar();
         }
 
@@ -293,9 +353,21 @@ namespace BundleChecker
             //查找包含资源
             string[] bundInfo = getBundleInfo(manifestInfoArr, "Assets:");
             List<ResoucresBean> allAssets = bundle.GetAllAssets();
+
+            ABMainChecker mainCheck = ABMainChecker.MainChecker;
             foreach (string assetPath in bundInfo)
             {
-                ResoucresBean rb = new ResoucresBean(assetPath , bundle);
+                string assetName = Path.GetFileName(assetPath);
+                ResoucresBean rb = null;
+                if (!mainCheck.ResourceDic.TryGetValue(assetName , out rb))
+                {
+                    rb = new ResoucresBean(assetPath);
+                    mainCheck.ResourceDic[assetName] = rb;
+                }
+
+                if(!rb.IncludeBundles.Contains(bundle))
+                    rb.IncludeBundles.Add(bundle);
+
                 allAssets.Add(rb);
             }
 

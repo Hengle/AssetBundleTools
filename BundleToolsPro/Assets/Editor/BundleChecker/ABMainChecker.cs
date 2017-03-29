@@ -10,6 +10,8 @@ namespace BundleChecker
     public class ABMainChecker : EditorWindow
     {
         public const string AssetBundleSuffix = ".ab";
+        //排除文件
+        public static HashSet<string> ExcludeFiles = new HashSet<string>(new []{".cs"});   
 
         private ABOverview overview = new ABOverview();
         
@@ -28,9 +30,14 @@ namespace BundleChecker
 
         public Dictionary<string , EditorBundleBean> BundleList = new Dictionary<string, EditorBundleBean>();
         /// <summary>
-        /// 冗余的资源
+        /// 资源池
         /// </summary>
-        public Dictionary<string , List<EditorBundleBean>> RedundancyDic = new Dictionary<string, List<EditorBundleBean>>();
+        public Dictionary<string , ResoucresBean> ResourceDic = new Dictionary<string, ResoucresBean>();
+        /// <summary>
+        /// 丢失的资源
+        /// </summary>
+        public List<ResoucresBean> MissingRes = new List<ResoucresBean>();
+         
         [MenuItem("AB冗余检测/Bundle Checker")]
         public static void ShowChecker()
         {
@@ -66,6 +73,8 @@ namespace BundleChecker
         }
 
         public BundleDetailView DetailBundleView { get { return bundleDetailView;} }
+
+        public AssetDistributeView AssetView { get { return assetView; } }
 
         public void SetCurrentView(EView view)
         {
