@@ -19,10 +19,10 @@ namespace BundleChecker
         private int lastTabIndex = 0;
 
         private string selectAsset ="";
-
+        private List<ResoucresBean> resList;
         private Vector2 scrollPos = Vector2.zero;
 
-        private string tipStr = "* AssetBundle内部资源详情";
+        private string tipStr = "* AssetBundle内部资源详情(红色资源为内置资或丢失的资源)";
         public void OnGUI()
         {
             GUI.color = Color.yellow;
@@ -89,9 +89,8 @@ namespace BundleChecker
             GUILayout.EndHorizontal();
 
             NGUIEditorTools.DrawSeparator();
-
-            scrollPos = GUILayout.BeginScrollView(scrollPos , GUILayout.Height(ABMainChecker.MainChecker.Height * 0.4f));
-            List<ResoucresBean> resList = curBundle.GetAllAssets();
+            
+            scrollPos = GUILayout.BeginScrollView(scrollPos , GUILayout.MinHeight(ABMainChecker.MainChecker.Height * 0.4f));
             int indexRow = 0;
             foreach (ResoucresBean res in resList)
             {
@@ -137,43 +136,63 @@ namespace BundleChecker
             int column = Mathf.Max(1, (int)((ABMainChecker.MainChecker.Width - 380) / 150));
             if (res.IncludeBundles.Count > 1)
             {
-                GUILayout.BeginVertical();
-                int countIndex = 0;
-                int endIndex = 0;
-                for (int i = 0, maxCount = res.IncludeBundles.Count; i < maxCount; i++)
-                {
-                    EditorBundleBean depBundle = res.IncludeBundles[i];
-                    if(depBundle == curBundle)  continue;
+                drawBundleGrid(curBundle , res, column);
 
-                    if (countIndex % column == 0)
-                    {
-                        endIndex = countIndex + column;
-                        GUILayout.BeginHorizontal();
-                    }
-                    if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(150)))
-                    {
-                        ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
-                    }
-                    if (countIndex == endIndex)
-                    {
-                        endIndex = 0;
-                        GUILayout.EndHorizontal();
-                    }
-                    countIndex ++;
-                }
-                if (endIndex != 0) GUILayout.EndHorizontal();
-                GUILayout.EndVertical();
 
-                GUILayout.Space(15);
-                if (GUILayout.Button("GO", GUILayout.Width(80), GUILayout.Height(25)))
-                {
-                    ABMainChecker.MainChecker.AssetView.SetResoucre(res);
-                }
-                GUILayout.Space(15);
             }
             GUI.color = Color.white;
 
             GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 绘制GriLayout布局的Bundle信息
+        /// </summary>
+        /// <param name="res"></param>
+        /// <param name="column"></param>
+        public static void drawBundleGrid(EditorBundleBean curBundle , ResoucresBean res, int column)
+        {
+            GUILayout.BeginVertical();
+            int countIndex = 0;
+            int endIndex = 0;
+            for (int i = 0, maxCount = res.IncludeBundles.Count; i < maxCount; i++)
+            {
+                EditorBundleBean depBundle = res.IncludeBundles[i];
+                if (depBundle == curBundle) continue;
+
+                if (countIndex % column == 0)
+                {
+                    endIndex = countIndex + column - 1;
+                    GUILayout.BeginHorizontal();
+                }
+                if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(140)))
+                {
+                    ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
+                }
+                if (countIndex == endIndex)
+                {
+                    endIndex = 0;
+                    GUILayout.EndHorizontal();
+                }
+                countIndex++;
+            }
+            if (endIndex != 0) GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+
+            GUILayout.FlexibleSpace();
+
+            GUILayout.BeginVertical();
+            GUILayout.Space(5);
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(15);
+            if (GUILayout.Button("GO", GUILayout.Width(70), GUILayout.Height(25)))
+            {
+                ABMainChecker.MainChecker.AssetView.SetResoucre(res);
+            }
+            GUILayout.Space(15);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(5);
+            GUILayout.EndVertical();
         }
 
         private Vector2 depScrollPos = Vector2.zero;
@@ -274,23 +293,66 @@ namespace BundleChecker
         }
         #endregion
 
-
+        #region --------------------网格信息-----------------------------
+        private ResPropertyGUI[] meshPropertys = new[]
+        {
+            new ResPropertyGUI{Title = "Mesh名称" , PropertyName = ResourceGlobalProperty.Name, GuiWidth = 150},
+            new ResPropertyGUI{Title = "AB数量" ,  PropertyName = ResourceGlobalProperty.ABCount, GuiWidth = 80},
+            new ResPropertyGUI{Title = "AssetBundle" ,  PropertyName = ResourceGlobalProperty.AssetBundles, GuiWidth = - 1f},
+        };
+        #endregion
         private void drawMeshAssets()
         {
-            
+            drawAssetsAttribute(meshPropertys, EResoucresTypes.MeshType);
         }
 
         #region ------------------Shader -----------------------------
-        private ResPropertyGUI[] shaderPropertys = new[]
-        {
-            new ResPropertyGUI{Title = "Shader名称" , PropertyName = ResourceGlobalProperty.Name, GuiWidth = -0.5f},
-            new ResPropertyGUI{Title = "AB数量" , PropertyName = ResourceGlobalProperty.ABCount, GuiWidth = 80},
-            new ResPropertyGUI{Title = "AssetBundle" ,  PropertyName = ResourceGlobalProperty.AssetBundles, GuiWidth = - 1f},
-        };
 
         private void drawShaderAssets()
         {
-            drawAssetsAttribute(shaderPropertys, EResoucresTypes.ShaderType);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Shader名称", GUILayout.Width(200));
+            GUILayout.Label("AB数量", GUILayout.Width(80));
+            GUILayout.Label("所属AssetBundle");
+            GUILayout.Label("详情", GUILayout.Width(100));
+            GUILayout.EndHorizontal();
+
+            NGUIEditorTools.DrawSeparator();
+
+            scrollPos = GUILayout.BeginScrollView(scrollPos);
+            List<ResoucresBean> resList = curBundle.GetAllAssets(EResoucresTypes.ShaderType);
+            int index = 0;
+            foreach (ResoucresBean res in resList)
+            {
+                if (string.IsNullOrEmpty(searchFilter) || res.Name.Contains(searchFilter))
+                    drawShaderRowAsset(res, index++);
+            }
+            GUILayout.EndScrollView();
+        }
+
+
+        private void drawShaderRowAsset(ResoucresBean res, int indexRow)
+        {
+            GUI.backgroundColor = indexRow % 2 == 0 ? Color.white : new Color(0.8f, 0.8f, 0.8f);
+            GUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(20f));
+            GUI.backgroundColor = Color.white;
+
+            GUI.color = selectAsset == res.Name ? Color.green : Color.white;
+            if (GUILayout.Button(res.Name, EditorStyles.label, GUILayout.Width(200)))
+            {
+                selectAsset = res.Name;
+            }
+
+            GUILayout.Label(res.IncludeBundles.Count.ToString(), GUILayout.Width(80));
+
+            //具体的ab名称                
+            if (res.IncludeBundles.Count > 1)
+            {
+                drawBundleGrid(curBundle , res, 4);
+            }
+            GUI.color = Color.white;
+
+            GUILayout.EndHorizontal();
         }
 
         #endregion
@@ -343,8 +405,10 @@ namespace BundleChecker
         {
             curTabIndex = 0;
             this.curBundle = bundle;
+            resList = bundle.GetAllAssets();
+            resList.Sort((x , y)=>x.IncludeBundles.Count.CompareTo(y.IncludeBundles.Count) * -1);
 
-            foreach (ResoucresBean res in bundle.GetAllAssets())
+            foreach (ResoucresBean res in resList)
                 res.LoadRawAsset();
 
             string title = string.Format("<color=white>[AssetBundle]<color=green>{0}</color></color>", curBundle.BundleName);

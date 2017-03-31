@@ -54,6 +54,8 @@ namespace BundleChecker
             titleLabStyle.fontSize = 25;
             titleLabStyle.fontStyle = FontStyle.Bold;
             titleLabStyle.richText = true;
+
+            overview.Initlization();
         }
 
 
@@ -89,7 +91,7 @@ namespace BundleChecker
                     assetView.OnGUI();
                     break;
             }
-            GUILayout.Space(5);
+            GUILayout.Space(10);
         }
 
         public BundleDetailView DetailBundleView { get { return bundleDetailView;} }

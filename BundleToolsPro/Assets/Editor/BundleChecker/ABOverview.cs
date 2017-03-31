@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Remoting.Messaging;
 using UnityEditor;
 using UnityEngine;
@@ -28,13 +29,17 @@ namespace BundleChecker
         private EView curView = EView.ALLAsset;
         //冗余的bundle资源
         private Dictionary<string , EditorBundleBean> redundancyDic = new Dictionary<string, EditorBundleBean>();
+        private List<EditorBundleBean> redundancyList;
+        //内置资源引用
+//        private 
         private static Dictionary<string , string> allBundleFiles = new Dictionary<string, string>();  //目录下的所有bundle资源包
 
         private string curFolder = "";
 
         private bool isInit = false;
+        private int sortToggle = 1;
 
-        private void initlization()
+        public void Initlization()
         {
             if (isInit) return;
 
@@ -46,8 +51,7 @@ namespace BundleChecker
 
         public void OnGUI()
         {
-            this.initlization();
-
+            
             NGUIEditorTools.DrawHeader("检测AssetBundle");
             GUILayout.BeginHorizontal();
                 
@@ -104,12 +108,14 @@ namespace BundleChecker
             {
                 scrollPos = Vector2.zero;
                 curView = EView.ALLAsset;
-                
             }
 
             if (GUILayout.Button(string.Format("冗余资源数：{0}", redundancyDic.Count), GUILayout.Height(50)))
             {
                 scrollPos = Vector2.zero;
+                redundancyList = redundancyDic.Values.ToList();
+                redundancyList.Sort((x,y)=>(new CaseInsensitiveComparer()).Compare(x.BundleName , y.BundleName));
+
                 curView = EView.RedundancyAssets;
             }
 
@@ -117,8 +123,10 @@ namespace BundleChecker
             {
                 scrollPos = Vector2.zero;
                 selectAsset = "";
+                mainCheckr.MissingRes.Sort((x, y) => (new CaseInsensitiveComparer()).Compare(x.Name, y.Name));
                 curView = EView.MissingAsset;
             }
+            
             GUILayout.EndHorizontal();
         }
 
@@ -236,20 +244,43 @@ namespace BundleChecker
             //all assets
             NGUIEditorTools.DrawHeader("All Redundancy AssetBundle");
 
+            
             GUILayout.BeginHorizontal();
-            GUILayout.Toggle(false, "AssetBundle 名称", "ButtonLeft", GUILayout.Width(200));
-            GUILayout.Toggle(false, "Mesh", "ButtonMid");
-            GUILayout.Toggle(false, "Material", "ButtonMid");
-            GUILayout.Toggle(false, "Texture", "ButtonMid");
-            GUILayout.Toggle(false, "Shader", "ButtonMid");
-            GUILayout.Toggle(false, "详细", "ButtonRight", GUILayout.Width(80));
+            if (GUILayout.Toggle(false, "AssetBundle 名称", "ButtonLeft", GUILayout.MinWidth(300)))
+            {
+                sortToggle *= -1;
+                redundancyList.Sort((x,y)=>(new CaseInsensitiveComparer()).Compare(x.BundleName , y.BundleName) * sortToggle);
+            }
+            if (GUILayout.Toggle(false, "Mesh", "ButtonMid", GUILayout.MinWidth(100)))
+            {
+                sortToggle *= -1;
+                redundancyList.Sort((x,y)=> comparerAssetCount(x,y,EResoucresTypes.MeshType) );
+            }
+            if (GUILayout.Toggle(false, "Material", "ButtonMid", GUILayout.MinWidth(100)))
+            {
+                sortToggle *= -1;
+                redundancyList.Sort((x, y) => comparerAssetCount(x, y, EResoucresTypes.MatrialType));
+            }
+            if(GUILayout.Toggle(false, "Texture", "ButtonMid", GUILayout.MinWidth(100)))
+            {
+                sortToggle *= -1;
+                redundancyList.Sort((x, y) => comparerAssetCount(x, y, EResoucresTypes.TextureType));
+            }
+            if (GUILayout.Toggle(false, "Shader", "ButtonMid", GUILayout.MinWidth(100)))
+            {
+                sortToggle *= -1;
+                redundancyList.Sort((x, y) => comparerAssetCount(x, y, EResoucresTypes.ShaderType));
+            }
+            GUILayout.Toggle(false, "详细", "ButtonRight", GUILayout.Width(100));
             GUILayout.EndHorizontal();
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             indexRow = 0;
-            foreach (EditorBundleBean bundle in redundancyDic.Values)
+            
+            foreach (EditorBundleBean bundle in redundancyList)
             {
-                drawRowRedundancyAsset(bundle);
+                if(string.IsNullOrEmpty(searchFilter) || bundle.BundleName.Contains(searchFilter))
+                    drawRowRedundancyAsset(bundle);
             }
             GUILayout.EndScrollView();
         }
@@ -258,29 +289,33 @@ namespace BundleChecker
         {
             indexRow++;
             GUI.backgroundColor = indexRow % 2 == 0 ? Color.white : new Color(0.8f, 0.8f, 0.8f);
-            GUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(20f));
+            GUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(25f));
             GUI.backgroundColor = Color.white;
             //名称
-            GUILayout.Label(bundle.BundleName, GUILayout.Width(200));
+            GUILayout.Label(bundle.BundleName, GUILayout.MinWidth(300));
             //Mesh
             int count = getAssetDedundancyCount(bundle, EResoucresTypes.MeshType);
-            GUILayout.Label(count.ToString());
+            GUILayout.Space(40);
+            GUILayout.Label(count.ToString() , GUILayout.MinWidth(100));
             //material
             count = getAssetDedundancyCount(bundle, EResoucresTypes.MatrialType);
-            GUILayout.Label(count.ToString());
+            GUILayout.Space(40);
+            GUILayout.Label(count.ToString(), GUILayout.MinWidth(100));
             //Texture
             count = getAssetDedundancyCount(bundle, EResoucresTypes.TextureType);
-            GUILayout.Label(count.ToString());
+            GUILayout.Space(40);
+            GUILayout.Label(count.ToString(), GUILayout.MinWidth(100));
             //Shader
             count = getAssetDedundancyCount(bundle, EResoucresTypes.ShaderType);
-            GUILayout.Label(count.ToString());
+            GUILayout.Space(40);
+            GUILayout.Label(count.ToString(), GUILayout.MinWidth(100));
             //查询
-            GUILayout.Space(15);
+            GUILayout.Space(25);
             if (GUILayout.Button("GO", GUILayout.Width(50), GUILayout.Height(25)))
             {
                 ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(bundle);
             }
-            GUILayout.Space(15);
+            GUILayout.Space(25);
             GUILayout.EndHorizontal();
         }
 
@@ -296,9 +331,15 @@ namespace BundleChecker
             List<ResoucresBean> resList = bundle.GetAllAssets();
             foreach (ResoucresBean res in resList)
             {
-                if (resType == res.ResourceType) count ++;
+                if (resType == res.ResourceType && res.IncludeBundles.Count > 1)
+                    count ++;
             }
             return count;
+        }
+
+        private int comparerAssetCount(EditorBundleBean x, EditorBundleBean y, string resType)
+        {
+            return getAssetDedundancyCount(x, resType).CompareTo(getAssetDedundancyCount(y, resType)) * sortToggle;
         }
         #endregion
 
@@ -311,15 +352,23 @@ namespace BundleChecker
             //all assets
             NGUIEditorTools.DrawHeader("All Missing AssetBundle");
 
+            List<ResoucresBean> missingResList = ABMainChecker.MainChecker.MissingRes;
+
             GUILayout.BeginHorizontal();
-            GUILayout.Toggle(false, "Asset 名称", "ButtonLeft", GUILayout.Width(200));
-            GUILayout.Toggle(false, "类型", "ButtonMid" , GUILayout.Width(100));
+            if (GUILayout.Toggle(false, "Asset 名称", "ButtonLeft", GUILayout.Width(200)))
+            {
+                missingResList.Sort((x, y) => (new CaseInsensitiveComparer()).Compare(x.Name, y.Name));
+            }
+            if (GUILayout.Toggle(false, "类型", "ButtonMid", GUILayout.Width(100)))
+            {
+                missingResList.Sort((x , y)=> (new CaseInsensitiveComparer()).Compare(x.ResourceType , y.ResourceType));
+            }
             GUILayout.Toggle(false, "路径", "ButtonRight");
             GUILayout.EndHorizontal();
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             indexRow = 0;
-            List<ResoucresBean> missingResList = ABMainChecker.MainChecker.MissingRes;
+            
             foreach (ResoucresBean res in missingResList)
             {
                 indexRow++;
@@ -394,17 +443,17 @@ namespace BundleChecker
 
             //再检测冗余
             int _i = 0;
-            int _maxCount = resDic.Count;
+            float _maxCount = resDic.Count;
             foreach (ResoucresBean res in resDic.Values)
             {
-                EditorUtility.DisplayProgressBar("分析中", "分析冗余...", (float)_i / _maxCount);
+                EditorUtility.DisplayProgressBar("分析中", "分析冗余...", _i / _maxCount);
+                _i++;
                 if (res.IncludeBundles.Count <= 1) continue;
 
                 foreach (EditorBundleBean bundle in res.IncludeBundles)
                 {
                     redundancyDic[bundle.BundleName] = bundle;
                 }
-                _i++;
             }
             EditorUtility.ClearProgressBar();
         }
@@ -495,15 +544,16 @@ namespace BundleChecker
             return infos.ToArray();
         }
 
+        public static string overwiewDefaultFolder = string.Concat(Application.dataPath, "OverView_defultFolder");
         public string CurFolderRoot
         {
             get
             {
-                return EditorPrefs.GetString("ABChecker_OverView_defultFolder", Application.dataPath);
+                return EditorPrefs.GetString(overwiewDefaultFolder, Application.dataPath);
             }
             set
             {
-                EditorPrefs.SetString("ABChecker_OverView_defultFolder", value);
+                EditorPrefs.SetString(overwiewDefaultFolder, value);
             }
         }
 

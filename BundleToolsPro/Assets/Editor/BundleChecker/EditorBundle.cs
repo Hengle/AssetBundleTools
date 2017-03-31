@@ -5,8 +5,6 @@ using System.IO;
 using System.Text;
 using BundleChecker.ResoucreAttribute;
 using UnityEditor;
-using UnityEngine;
-using YamlDotNet.Serialization;
 using Object = UnityEngine.Object;
 
 namespace BundleChecker
@@ -56,6 +54,21 @@ namespace BundleChecker
         {
             return containeRes;
         }
+        /// <summary>
+        /// 获得具体类型的资源列表
+        /// </summary>
+        /// <param name="resType"></param>
+        /// <returns></returns>
+        public List<ResoucresBean> GetAllAssets(string resType)
+        {
+            List<ResoucresBean> rbs = new List<ResoucresBean>();
+            foreach (ResoucresBean rb in containeRes)
+            {
+                if (rb.ResourceType != resType) continue;
+                rbs.Add(rb);
+            }
+            return rbs;
+        } 
 
         public int CompareTo(EditorBundleBean other)
         {
@@ -80,20 +93,30 @@ namespace BundleChecker
         private const string materialSfx = ".mat";
         private const string texturePngSfx = ".png";
         private const string textureJpgSfx = ".jpg";
+        private const string textureTgaSfx = ".tga";
+        private const string texturePsdSfx = ".psd";
         private const string animSfx = ".anim";
+        private const string animCtrlSfx = ".controller";
+        private const string meshSfx = ".fbx";
         private const string prefabSfx = ".prefab";
 
         public static string GetResourceType(string suffix)
         {
+            suffix = suffix.ToLower();
             switch (suffix)
             {
                 case shaderSfx: return ShaderType;
                 case materialSfx:   return MatrialType;
                 case textureJpgSfx:
                 case texturePngSfx:
+                case texturePsdSfx:
+                case textureTgaSfx:
                     return TextureType;
-                case animSfx:   return AnimationClipType;
+                case animSfx:
+                case animCtrlSfx:
+                    return AnimationClipType;
                 case prefabSfx: return Prefab;
+                case meshSfx: return MeshType;
             }
             
             return UnKnow;
@@ -161,6 +184,9 @@ namespace BundleChecker
                 case EResoucresTypes.ShaderType:
                     RawRes = new ShaderAttribute(this);
                     break;
+                case EResoucresTypes.MeshType:
+                    RawRes = new MeshAttribute(this);
+                    break;
             }
         }
 
@@ -179,6 +205,9 @@ namespace BundleChecker
             {
                 ResoucresBean rb = null;
                 string depAssetPath = AssetDatabase.GetAssetPath(depAsset);
+                //Library asset
+                if(BuiltinChecker.IsLibraryRes(depAssetPath))   continue;
+
                 if (BuiltinChecker.IsExtraRes(depAssetPath))
                 {
                     depAssetPath = BuiltinChecker.GetBuiltinAssetPath(depAsset);
