@@ -24,6 +24,7 @@ namespace BundleChecker.ResoucreAttribute
         protected ResoucresBean mainAsset;
 
         private static int column = 2;
+        private static string[] toggleBtn = new[] {"ButtonMid", "ButtonMid" };
 
         private float fixTotalWidth;
         public ABaseResource(ResoucresBean res)
@@ -59,13 +60,13 @@ namespace BundleChecker.ResoucreAttribute
         {
             foreach (ResPropertyGUI rpgui in attributeGUI)
             {
-                string[] propertyArr = this.getPropertyValue(rpgui.PropertyName);
-                if (propertyArr == null)    continue;
+                string[] propertyValueArr = this.getPropertyValue(rpgui.PropertyName);
+                if (propertyValueArr == null || propertyValueArr.Length <= 0)    continue;
                 float realWidth = getRealWidth(rpgui.GuiWidth);
-                if(propertyArr.Length > 1)
-                    drawPropertyArr(propertyArr , realWidth);
+                if(propertyValueArr.Length > 1)
+                    drawPropertyArr(rpgui.PropertyName , propertyValueArr, realWidth);
                 else
-                    drawPropertyString(propertyArr[0] , realWidth);
+                    drawPropertyString(propertyValueArr[0] , realWidth);
             }
         }
 
@@ -90,26 +91,27 @@ namespace BundleChecker.ResoucreAttribute
         }
 
 
-        private void drawPropertyArr(string[] propertyArr, float width)
+        private void drawPropertyArr(string property , string[] propertyArr, float width)
         {
             GUILayout.BeginVertical();
 
             int endIndex = 0;
+
             for (int i = 0, maxCount = propertyArr.Length; i < maxCount; i++)
             {
-                EditorBundleBean depBundle = mainAsset.IncludeBundles[i];
                 if (i % column == 0)
                 {
                     endIndex = i + column - 1;
                     GUILayout.BeginHorizontal();
+                    GUILayout.Space(10);
                 }
-                if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(width * 0.5f)))
-                {
-                    ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
-                }
+
+                GUILayout.Toggle(false , propertyArr[i], toggleBtn[i % column], GUILayout.Width(width*0.5f));
+                
                 if (i == endIndex)
                 {
                     endIndex = 0;
+                    GUILayout.Space(10);
                     GUILayout.EndHorizontal();
                 }
             }

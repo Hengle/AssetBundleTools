@@ -2,8 +2,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using BundleChecker.ResoucreAttribute;
 using UnityEditor;
+using UnityEngine;
+using YamlDotNet.Serialization;
 using Object = UnityEngine.Object;
 
 namespace BundleChecker
@@ -118,6 +121,10 @@ namespace BundleChecker
         /// </summary>
         public bool IsMissing { get; set; }
         /// <summary>
+        /// 是否是内置资源
+        /// </summary>
+        public bool IsBuiltinExa { get; set; }
+        /// <summary>
         /// 资源的原始数据
         /// </summary>
         public ABaseResource RawRes { get; private set; }
@@ -129,20 +136,21 @@ namespace BundleChecker
         /// <summary>
         /// 依赖的资源
         /// </summary>
-        public Dictionary<string , ResoucresBean> Dependencies = new Dictionary<string, ResoucresBean>(); 
+        public Dictionary<string , ResoucresBean> Dependencies = new Dictionary<string, ResoucresBean>();
+
+        public Object[] mainObjs { get; private set; }
         public ResoucresBean(string path)
         {
             this.AssetPath = path;
             this.Name = Path.GetFileName(path);
             this.ResourceType = EResoucresTypes.GetResourceType(Path.GetExtension(path));
-
-            if(File.Exists(path))   this.loadRawAsset();
         }
-
-
-        private void loadRawAsset()
+        
+        public void LoadRawAsset()
         {
-            switch (this.ResourceType)
+            if (this.RawRes != null || !File.Exists(this.AssetPath))    return;
+
+                switch (this.ResourceType)
             {
                 case EResoucresTypes.TextureType:
                     RawRes = new TextureAttribute(this);
@@ -155,37 +163,67 @@ namespace BundleChecker
                     break;
             }
         }
+
+
         /// <summary>
         /// 检测依赖资源
         /// </summary>
         public void CheckDependencies()
-        {
-            Object[] assetObjs = AssetDatabase.LoadAllAssetsAtPath(this.AssetPath);
-            Object[] depArr = EditorUtility.CollectDependencies(assetObjs);
-
+        {           
+            mainObjs = new [] {AssetDatabase.LoadAssetAtPath<Object>(this.AssetPath)};
+            Object[] depArr = EditorUtility.CollectDependencies(mainObjs);
+           
             Dictionary<string, ResoucresBean> resDic = ABMainChecker.MainChecker.ResourceDic;
+   
             foreach (Object depAsset in depArr)
             {
-                string depAssetPath = AssetDatabase.GetAssetPath(depAsset);
-                string depAssetName = Path.GetFileName(depAssetPath);
-                if(depAssetName == Name)    continue;
-
-                //排除不打包的文件，比如.cs
-                string suffix = Path.GetExtension(depAssetPath);
-                if(ABMainChecker.ExcludeFiles.Contains(suffix)) continue;
-
                 ResoucresBean rb = null;
-                if (!resDic.TryGetValue(depAssetPath, out rb))
+                string depAssetPath = AssetDatabase.GetAssetPath(depAsset);
+                if (BuiltinChecker.IsExtraRes(depAssetPath))
                 {
-                    rb = new ResoucresBean(depAssetPath);
-                    rb.IsMissing = true;
-                    resDic[depAssetPath] = rb;
+                    depAssetPath = BuiltinChecker.GetBuiltinAssetPath(depAsset);
+                    if (!resDic.TryGetValue(depAssetPath, out rb))
+                    {
+                        rb = new ResoucresBean(depAssetPath);
+                        rb.IsBuiltinExa = true;
+                        resDic[depAssetPath] = rb;
+                    }
+                    //如果是内置资源，将会重复打包到所属bundle内
+                    foreach (EditorBundleBean bundle in this.IncludeBundles)
+                    {
+                        if(rb.IncludeBundles.Contains(bundle))  continue;
+                        rb.IncludeBundles.Add(bundle);
+                    }
+                    
+                    //bundle包含
+                    foreach (EditorBundleBean bundle in IncludeBundles)
+                    {
+                        List<ResoucresBean> allAsset = bundle.GetAllAssets();
+                        if(allAsset.Contains(rb))   continue;
+                        allAsset.Add(rb);
+                    }
+                }
+                else
+                {
+                    string depAssetName = Path.GetFileName(depAssetPath);
+                    if(depAssetName == Name)    continue;
 
-                    ABMainChecker.MainChecker.MissingRes.Add(rb);
+                    //排除不打包的文件，比如.cs
+                    string suffix = Path.GetExtension(depAssetPath);
+                    if(ABMainChecker.ExcludeFiles.Contains(suffix)) continue;
+                
+                    if (!resDic.TryGetValue(depAssetPath, out rb))
+                    {
+                        rb = new ResoucresBean(depAssetPath);
+                        rb.IsMissing = true;
+                        resDic[depAssetPath] = rb;
+
+                        ABMainChecker.MainChecker.MissingRes.Add(rb);
+                    }                    
                 }
 
                 Dependencies[depAssetPath] = rb;
-            }            
+            }       
         }
     }
 }

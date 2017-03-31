@@ -16,8 +16,7 @@ namespace BundleChecker.ResoucreAttribute
 
         public MaterialAttribute(ResoucresBean res) : base(res)
         {
-            Object[] mainObj = AssetDatabase.LoadAllAssetsAtPath(res.AssetPath);
-            Object[] depObjArr = EditorUtility.CollectDependencies(mainObj);
+            Object[] depObjArr = EditorUtility.CollectDependencies(res.mainObjs);
 
             List<string> depTexs = new List<string>();
             foreach (Object obj in depObjArr)

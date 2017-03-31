@@ -28,6 +28,7 @@ namespace BundleChecker
         private EView curView = EView.ALLAsset;
         //冗余的bundle资源
         private Dictionary<string , EditorBundleBean> redundancyDic = new Dictionary<string, EditorBundleBean>();
+        private static Dictionary<string , string> allBundleFiles = new Dictionary<string, string>();  //目录下的所有bundle资源包
 
         private string curFolder = "";
 
@@ -49,25 +50,30 @@ namespace BundleChecker
 
             NGUIEditorTools.DrawHeader("检测AssetBundle");
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Asset Bundles", GUILayout.Width(120));
+                
+                if (GUILayout.Button("Asset Bundles", "DropDown" ,GUILayout.Width(120)))
+                {
+                    string path = EditorUtility.OpenFolderPanel("Select", CurFolderRoot , "");
+                    CurFolderRoot = path;
+                    curFolder = path;                
+                }
             
-            if (curFolder.StartsWith(Application.dataPath))
-            {
-                curFolder = curFolder.Replace(Application.dataPath, "Assets");
-            }
-            GUILayout.TextField(curFolder);
-            if (GUILayout.Button("..." , GUILayout.Width(30)))
-            {
-                string path = EditorUtility.OpenFolderPanel("Select", CurFolderRoot , "");
-                CurFolderRoot = path;
-                curFolder = path;
-            }
+                if (curFolder.StartsWith(Application.dataPath))
+                {
+                    curFolder = curFolder.Replace(Application.dataPath, "Assets");
+                }
+                GUILayout.TextField(curFolder);
+
+                GUILayout.Space(10);
             GUILayout.EndHorizontal();
 
-            if (GUILayout.Button("Go Check" , GUILayout.Height(30)))
+            GUI.backgroundColor = Color.green;
+            if (GUILayout.Button("Go Check", GUILayout.Height(25)))
             {
+                bundleArr = null;
                 this.findAllBundles();
             }
+            GUI.backgroundColor = Color.white;
 
             //Overview
             NGUIEditorTools.DrawSeparator();
@@ -350,6 +356,10 @@ namespace BundleChecker
             if (!Directory.Exists(rootPath)) return;
 
             string[] fileArr = Directory.GetFiles(rootPath, "*" + ABMainChecker.AssetBundleSuffix, SearchOption.AllDirectories);
+            //记录bundle路径，用于校验
+            allBundleFiles.Clear();
+            foreach (string abPath in fileArr)
+                allBundleFiles[Path.GetFileName(abPath)] = abPath;
 
             ABMainChecker.MainChecker.Clear();
 
@@ -361,7 +371,7 @@ namespace BundleChecker
 
             for (int i = 0 , maxCount = fileArr.Length; i < maxCount; i++)
             {
-                string assetPath = GetRelativeAssetPath(fileArr[i]);
+                string assetPath = GetRealBundlePath(fileArr[i]);
                 if (!bundleDic.ContainsKey(assetPath))
                 {
                     EditorBundleBean bundleBean = new EditorBundleBean(assetPath);
@@ -369,23 +379,32 @@ namespace BundleChecker
                     loadAssetBundle(bundleBean);
                 }
             }
-            EditorUtility.DisplayProgressBar("分析中", "分析冗余", 1.0f);
+            
 
             Dictionary<string, ResoucresBean> resDic = ABMainChecker.MainChecker.ResourceDic;
             ResoucresBean[] resArr = new ResoucresBean[resDic.Count];
             resDic.Values.CopyTo(resArr , 0);
 
             redundancyDic.Clear();
-            foreach (ResoucresBean res in resArr)
+            for (int i = 0 , maxCount = resArr.Length; i < maxCount; i++)
             {
-                res.CheckDependencies();
+                EditorUtility.DisplayProgressBar("分析中", "检测依赖资源...", (float)i / maxCount);
+                resArr[i].CheckDependencies();
+            }
 
+            //再检测冗余
+            int _i = 0;
+            int _maxCount = resDic.Count;
+            foreach (ResoucresBean res in resDic.Values)
+            {
+                EditorUtility.DisplayProgressBar("分析中", "分析冗余...", (float)_i / _maxCount);
                 if (res.IncludeBundles.Count <= 1) continue;
 
                 foreach (EditorBundleBean bundle in res.IncludeBundles)
                 {
                     redundancyDic[bundle.BundleName] = bundle;
                 }
+                _i++;
             }
             EditorUtility.ClearProgressBar();
         }
@@ -435,7 +454,7 @@ namespace BundleChecker
             foreach (string curAssetPath in bundInfo)
             {
                 EditorBundleBean depBundle = null;
-                string assetPath = GetRelativeAssetPath(curAssetPath);
+                string assetPath = GetRealBundlePath(curAssetPath);
                 if (!bundles.TryGetValue(assetPath, out depBundle))
                 {
                     depBundle = new EditorBundleBean(assetPath);
@@ -495,10 +514,23 @@ namespace BundleChecker
             if (!assetPath.StartsWith("Assets/"))
             {
                 int index = assetPath.IndexOf("Assets/");
-                assetPath = assetPath.Substring(index).Replace("\\", "/");
+                if(index > 0)
+                    assetPath = assetPath.Substring(index).Replace("\\", "/");
             }
             return assetPath;
-        } 
+        }
+
+        /// <summary>
+        /// 获得真实的Bundle路径
+        /// </summary>
+        /// <param name="bundlePath"></param>
+        /// <returns></returns>
+        public static string GetRealBundlePath(string bundlePath)
+        {
+            string bundName = Path.GetFileName(bundlePath);
+            if (allBundleFiles.ContainsKey(bundName)) return allBundleFiles[bundName];
+            return bundlePath;
+        }
     }
 
 

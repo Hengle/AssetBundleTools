@@ -11,7 +11,7 @@ namespace BundleChecker
     {
         public const string AssetBundleSuffix = ".ab";
         //排除文件
-        public static HashSet<string> ExcludeFiles = new HashSet<string>(new []{".cs"});   
+        public static HashSet<string> ExcludeFiles = new HashSet<string>(new []{".cs" , ".dll" , ".asset" , ".ttf"});   
 
         private ABOverview overview = new ABOverview();
         
@@ -40,7 +40,7 @@ namespace BundleChecker
 
         private GUIStyle titleLabStyle = new GUIStyle();
         private string subPageTitle = "";
-        [MenuItem("AB冗余检测/Bundle Checker")]
+        [MenuItem("AssetBundlePacker/Bundle 检测查询")]
         public static void ShowChecker()
         {
             MainChecker = EditorWindow.GetWindow<ABMainChecker>();

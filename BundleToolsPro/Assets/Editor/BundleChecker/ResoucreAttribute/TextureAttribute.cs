@@ -33,7 +33,7 @@ namespace BundleChecker.ResoucreAttribute
         {
             TextureImporter textImporter = AssetImporter.GetAtPath(res.AssetPath) as TextureImporter;
             
-            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(res.AssetPath);
+            Texture2D tex = res.mainObjs[0] as Texture2D;
             this.Width = tex.width;
             this.Height = tex.height;
             this.MemorySize = getTextureMemorySize(textImporter , tex);
@@ -64,7 +64,7 @@ namespace BundleChecker.ResoucreAttribute
             if (property == MEMORYSIZE)
             {
                 float mb = this.MemorySize/1024;
-                if (mb > 1) return new[] { string.Format("{0:F}MB", mb)};
+                if (mb >= 1) return new[] { string.Format("{0:F}MB", mb)};
                 return new[] { string.Format("{0:F}KB" ,this.MemorySize)};
             }
             if (property == FORMAT) return new[] { this.Format};

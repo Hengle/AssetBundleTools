@@ -22,9 +22,12 @@ namespace BundleChecker
 
         private Vector2 scrollPos = Vector2.zero;
 
+        private string tipStr = "* AssetBundle内部资源详情";
         public void OnGUI()
         {
-            if (curBundle == null) return;
+            GUI.color = Color.yellow;
+            GUILayout.Label(tipStr);
+            GUI.color = Color.white;
 
             drawTitle();
 
@@ -81,7 +84,7 @@ namespace BundleChecker
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset名称" , GUILayout.Width(200));
             GUILayout.Label("类型", GUILayout.Width(100));
-            GUILayout.Label("所属AssetBundle");
+            GUILayout.Label("所属其它AssetBundle");
             GUILayout.Label("是否冗余", GUILayout.Width(100));
             GUILayout.EndHorizontal();
 
@@ -135,24 +138,28 @@ namespace BundleChecker
             if (res.IncludeBundles.Count > 1)
             {
                 GUILayout.BeginVertical();
+                int countIndex = 0;
                 int endIndex = 0;
                 for (int i = 0, maxCount = res.IncludeBundles.Count; i < maxCount; i++)
                 {
                     EditorBundleBean depBundle = res.IncludeBundles[i];
-                    if (i % column == 0)
+                    if(depBundle == curBundle)  continue;
+
+                    if (countIndex % column == 0)
                     {
-                        endIndex = i + column;
+                        endIndex = countIndex + column;
                         GUILayout.BeginHorizontal();
                     }
                     if (GUILayout.Button(depBundle.BundleName, GUILayout.Width(150)))
                     {
                         ABMainChecker.MainChecker.DetailBundleView.SetCurrentBundle(depBundle);
                     }
-                    if (i == endIndex)
+                    if (countIndex == endIndex)
                     {
                         endIndex = 0;
                         GUILayout.EndHorizontal();
                     }
+                    countIndex ++;
                 }
                 if (endIndex != 0) GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
@@ -336,6 +343,9 @@ namespace BundleChecker
         {
             curTabIndex = 0;
             this.curBundle = bundle;
+
+            foreach (ResoucresBean res in bundle.GetAllAssets())
+                res.LoadRawAsset();
 
             string title = string.Format("<color=white>[AssetBundle]<color=green>{0}</color></color>", curBundle.BundleName);
 
