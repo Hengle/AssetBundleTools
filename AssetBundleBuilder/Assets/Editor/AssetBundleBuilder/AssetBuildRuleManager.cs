@@ -55,7 +55,7 @@ namespace AssetBundleBuilder
 
             if (File.Exists(defaultConfigPath)) File.Delete(defaultConfigPath);
 
-            ABConfigs configs = ScriptableObject.CreateInstance<ABConfigs>();
+            configs = ScriptableObject.CreateInstance<ABConfigs>();
             configs.Rules = rules;
 
             AssetDatabase.CreateAsset(configs , defaultConfigPath);

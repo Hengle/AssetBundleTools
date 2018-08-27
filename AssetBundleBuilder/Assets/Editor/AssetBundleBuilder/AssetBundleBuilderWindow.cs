@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -99,7 +100,7 @@ namespace AssetBundleBuilder
 
         private void onTreeModelChanged()
         {
-            
+            treeView.Reload();
         }
 
 
@@ -164,7 +165,11 @@ namespace AssetBundleBuilder
 
         private void drawLeftCenterGUI()
         {
-            GUILayout.Label("Configs:");
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+            GUILayout.Toggle(false, "Configs", EditorStyles.toolbarButton);
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.Space(5);
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset Version" , GUILayout.MaxWidth(100));
@@ -215,21 +220,14 @@ namespace AssetBundleBuilder
             EditorGUI.EndDisabledGroup();
 
             GUILayout.Space(5);
-
-            GUILayout.Label("", "IN Title");
-
+            
             GUI.color = Color.yellow;
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Local Debug", GUILayout.MaxWidth(160));
             this.builder.IsDebug = EditorGUILayout.Toggle(this.builder.IsDebug, GUILayout.MaxWidth(30));
             GUILayout.EndHorizontal();
             GUI.color = Color.white;
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Resource", GUILayout.MaxWidth(100));
-            this.builder.BuildAssetType = (BuildType)EditorGUILayout.EnumMaskField(this.builder.BuildAssetType, GUILayout.MaxWidth(160));
-            GUILayout.EndHorizontal();
-//
+            
 //            EditorGUILayout.BeginHorizontal();
 //            EditorGUILayout.LabelField("Config Table", GUILayout.MaxWidth(160));
 //            this.builder.IsDebug = EditorGUILayout.Toggle(this.builder.IsDebug, GUILayout.MaxWidth(30));
@@ -242,34 +240,84 @@ namespace AssetBundleBuilder
 
             GUILayout.Space(10);
 
-//            if (GUILayout.Button("Build Sub Package"))
-//            {
-//
-//            }
-//
-//            if (GUILayout.Button("Build Sub Assets"))
-//            {
-//
-//            }
             if (GUILayout.Button("Build"))
             {
-
+                builder.InitBuilding();
+                builder.StartBuild();
             }
 
             GUILayout.Space(10);
-            GUILayout.Label("", "IN Title");
+            //GUILayout.Label("", "IN Title");
             GUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Auto Build", GUILayout.Width(100));
             autoBuildIndex = EditorGUILayout.Popup(autoBuildIndex, styles.OnekeyBuilds);
+            builder.AutoBuild = styles.AutoBuilds[autoBuildIndex];
             GUILayout.EndHorizontal();
             GUI.backgroundColor = Color.green;
             if (GUILayout.Button("Go"))
             {
-
+                string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../"));
+                string filePath = EditorUtility.OpenFilePanel("Tip", rootPath, BuilderPreference.AppExtension);
+                if (!string.IsNullOrEmpty(filePath))
+                {
+                    builder.ApkSavePath = filePath;
+                    builder.InitAutoBuilding();
+                    builder.StartBuild();                    
+                }
             }
             GUI.backgroundColor = Color.white;
+
+            GUILayout.Space(5);
+            GUILayout.Label("", "IN Title");
+            GUILayout.Space(-5);
+
+            GUILayout.BeginVertical(GUILayout.MaxHeight(this.position.height * 0.5f));
+            drawBundleRulePropertys();
+            GUILayout.EndVertical();
         }
 
+        /// <summary>
+        /// 绘制Bundle Rule 详细配置
+        /// </summary>
+        private void drawBundleRulePropertys()
+        {
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+            GUILayout.Toggle(true , "Bunld Rule Propertys" , EditorStyles.toolbarButton , GUILayout.MaxWidth(120));
+            GUILayout.Toolbar(0, new[] { "" }, EditorStyles.toolbar, GUILayout.ExpandWidth(true));
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.Space(5);
+
+            AssetElement lastClickItem = treeModel.Find(this.treeViewState.lastClickedID);
+
+            if (lastClickItem != null && lastClickItem.BuildRule != null)
+            {
+                AssetBuildRule bundleRule = lastClickItem.BuildRule;
+
+                EditorGUIUtility.labelWidth = 120;
+
+                if (EditorGUILayout.Toggle("Preload", bundleRule.LoadType == ELoadType.PreLoad))
+                {
+                    bundleRule.LoadType = ELoadType.PreLoad;
+                }
+
+                bundleRule.PackageType = (PackageAssetType)EditorGUILayout.EnumPopup("Package Type" , bundleRule.PackageType);
+
+                if (bundleRule.PackageType == PackageAssetType.OutPackage)
+                {
+                    //非整包资源
+                    bundleRule.DownloadOrder = EditorGUILayout.IntField("Download Order", bundleRule.DownloadOrder);
+                }
+
+//                GUILayout.BeginHorizontal();
+//                GUILayout.Label("Path", GUILayout.Width(50));
+//                EditorGUILayout.TextField(bundleRule.Path);
+//                GUILayout.EndHorizontal();
+                GUILayout.Space(5);
+                GUILayout.TextArea(bundleRule.Path, GUILayout.MaxWidth(letfGUIWidth - 10), GUILayout.MaxHeight(40));
+            }
+            
+        }
 
         private void drawRightCenterGUI()
         {
@@ -300,7 +348,6 @@ namespace AssetBundleBuilder
             if (GUILayout.Button("Refresh", GUI.skin.button , nomaleButtonWidth))
             {
                 treeModel.AddChildrens(treeView.GetSelection());
-                treeView.Reload();
             }                
             
 
@@ -341,7 +388,7 @@ namespace AssetBundleBuilder
         /// </summary>
         private void addNewRootFolder()
         {
-            string path = EditorUtility.OpenFolderPanel(ABLanguage.SET_RESOURCE_FOLDER, "Assets", "");
+            string path = EditorUtility.OpenFolderPanel("Add Root Folder", "Assets", "");
             if (string.IsNullOrEmpty(path)) return;
 
             string relativePath = path.Replace(Application.dataPath, "Assets").Replace('\\', '/');

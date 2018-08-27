@@ -28,6 +28,8 @@ namespace AssetBundleBuilder
             //1.清除Assetbundle标记
             BuildUtil.ClearAssetBundleName();
             AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
             yield return null;
 
             //重新设置AB分配
@@ -37,7 +39,11 @@ namespace AssetBundleBuilder
             //开始启动Unity打包
             bool result = this.buildAssetBundle(true);
 
-            if(!result) yield break;
+            if (!result)
+            {
+                //打包失败,停止继续处理
+                this.Builder.CanleBuild();
+            }
         }
 
         /// <summary>
@@ -50,17 +56,30 @@ namespace AssetBundleBuilder
             AssetDatabase.Refresh();
 
             // 设置ab名
-            AssetBuildRule[] buildRules = AssetBuildRuleManager.Instance.Rules;
-
-            Builder.AddBuildLog("Set AssetBundleName...");
+            AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
 
             List<string> files = new List<string>();
             //获取根目录下的所有文件
-            for (int i = 0; i < buildRules.Length; i++)
+            for (int i = 0; i < rules.Length; i++)
             {
-                string[] newFiles = BuildUtil.SearchFiles(buildRules[i]);
+                string[] newFiles = BuildUtil.SearchFiles(rules[i]);
                 files.AddRange(newFiles);
             }
+
+            Builder.AddBuildLog("Set AssetBundleName...");
+
+            Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
+            for (int i = 0; i < rules.Length; i++)
+            {
+                List<AssetBuildRule> ruleList = rules[i].TreeToList();
+                for (int j = 0; j < ruleList.Count; j++)
+                {
+                    ruleMap[ruleList[j].AssetBundleName] = ruleList[j];
+                }
+            }
+
+            AssetBuildRule[] buildRules = new AssetBuildRule[ruleMap.Count];
+            ruleMap.Values.CopyTo(buildRules, 0);
 
             Builder.AssetMaps = new Dictionary<string, AssetMap>();
             Dictionary<string, AssetMap> assetMaps = Builder.AssetMaps;
@@ -87,8 +106,9 @@ namespace AssetBundleBuilder
                     AssetMap assetMap = null;
                     if (!assetMaps.TryGetValue(dependency[j], out assetMap))
                     {
-                        AssetBuildRule rule = findRuleByPath(files[i], buildRules);
-                        assetMap = new AssetMap(dependency[j] , rule);
+                        AssetBuildRule rule = findRuleByPath(dependency[j], buildRules);
+                        rule = rule == null ? fileAssetMap.Rule : rule;
+                        assetMap = new AssetMap(dependency[j] , rule );
                         assetMaps[dependency[j]] = assetMap;
                     }
 
@@ -101,8 +121,12 @@ namespace AssetBundleBuilder
             //根据明确的子目录设置AB名,即定义了指定的打包规则的目录
             foreach (AssetMap asset in assetMaps.Values)
             {
+                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}" , asset.AssetPath , asset.Rule.AssetBundleName) );
                 BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule.AssetBundleName);
             }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
 
             Builder.AddBuildLog("set assetbundle name ... end");
 
@@ -112,28 +136,6 @@ namespace AssetBundleBuilder
 
             Builder.AddBuildLog("Check Dependency... end");
         }
-
-
-        private List<AssetBuildRule> sortBuildRules(AssetBuildRule[] builds )
-        {
-            List<AssetBuildRule> rules = new List<AssetBuildRule>();
-
-            for (int i = 0; i < builds.Length; i++)
-            {
-                builds[i].TreeToList(builds[i] , rules);
-            }
-
-            rules.Sort((x, y) =>
-            {
-                int result = x.Order.CompareTo(y.Order);
-                if (result == 0) //equal
-                    result = x.Path.CompareTo(y.Path);
-                return result;
-            });
-
-            return rules;
-        }
-
 
         /// <summary>
         /// 查找父目录的打包规则
@@ -159,6 +161,7 @@ namespace AssetBundleBuilder
                     rule = rules[i];
                 }
             }
+            
             return rule;
         }
 
@@ -223,12 +226,11 @@ namespace AssetBundleBuilder
                 RemoveNotExsitBundles();
                 // 更新资源版本号
                 string bundlePath = BuilderPreference.BUILD_PATH;
-                //                gameVersion.VersionIncrease();
-                //PlayerSettings.bundleVersion = gameVersion.ToString();
-                //                File.WriteAllText(bundlePath + "/version.txt", gameVersion.ToString());
-                //                ABPackHelper.SaveVersion(gameVersion.ToString());
-
-                //AssetDatabase.Refresh();
+                Builder.GameVersion.VersionIncrease();
+                PlayerSettings.bundleVersion = Builder.GameVersion.ToString();
+                File.WriteAllText(bundlePath + "/version.txt", Builder.GameVersion.ToString());
+                Builder.SaveVersion();
+                
                 AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(bundlePath, BuilderPreference.BuildBundleOptions, EditorUserBuildSettings.activeBuildTarget);
                 if (manifest == null)
                     throw new Exception("Build assetbundle error");
@@ -247,7 +249,7 @@ namespace AssetBundleBuilder
             }
             catch (Exception e)
             {
-                EditorUtility.DisplayDialog("error", e.Message.ToString(), "ok");
+                Debug.LogException(e);
                 return false;
             }
         }
@@ -255,6 +257,8 @@ namespace AssetBundleBuilder
 
         public void CopyToAssetBundle()
         {
+            Builder.AddBuildLog("Copying to AssetBundle folder...");
+
             string fromPath = BuilderPreference.TEMP_ASSET_PATH;
             string toPath = BuilderPreference.BUILD_PATH;
 
@@ -262,22 +266,24 @@ namespace AssetBundleBuilder
             Directory.CreateDirectory(toPath);
 
             var dirInfo = new DirectoryInfo(fromPath);
-
-            int index = 0;
-            FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
-            foreach (var file in files)
+            if (dirInfo.Exists)
             {
-                index++;
-                if (file.Name.Contains("config.txt"))   continue;
+                int index = 0;
+                FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
+                foreach (var file in files)
+                {
+                    index++;
+                    if (file.Name.Contains("config.txt"))   continue;
+                
+                    string relativePath = file.FullName.Replace("\\", "/");
+                    string to = relativePath.Replace(fromPath, toPath);
 
-                //ShowProgress("Copying to AssetBundle folder...", (float)index / (float)files.Length);
-                string relativePath = file.FullName.Replace("\\", "/");
-                string to = relativePath.Replace(fromPath, toPath);
-                if (!Directory.Exists(to)) Directory.CreateDirectory(to);
-                File.Copy(relativePath, to, true);
+                    BuildUtil.SwapPathDirectory(to);
+                    File.Copy(relativePath, to, true);
+                }
             }
-//            ShowProgress("", 1);
-            AssetDatabase.Refresh();
+
+            Builder.AddBuildLog("[end]Copying to AssetBundle folder...");
         }
 
         /// <summary>
@@ -286,7 +292,7 @@ namespace AssetBundleBuilder
         private void RemoveNotExsitBundles()
         {
             string[] files = Directory.GetFiles(BuilderPreference.BUILD_PATH, "*.ab", SearchOption.AllDirectories);
-//            ABPackHelper.ShowProgress("", 0);
+            Builder.AddBuildLog("Removing not exsit bundles...");
 
             string[] assetBundles = AssetDatabase.GetAllAssetBundleNames();
             HashSet<string> allBundleSet = new HashSet<string>(assetBundles);
@@ -294,7 +300,6 @@ namespace AssetBundleBuilder
             for (int i = 0; i < files.Length; ++i)
             {
                 var file = files[i].Replace("\\", "/");
-                //ABPackHelper.ShowProgress("Removing bundles...", (float)i / (float)files.Length);
 
                 string fileName = Path.GetFileName(file);
                 if (!allBundleSet.Contains(fileName))
@@ -305,7 +310,6 @@ namespace AssetBundleBuilder
                     File.Delete(file + ".manifest.meta");
                 }
             }
-            //ABPackHelper.ShowProgress("", 1);
             AssetDatabase.Refresh();
         }
     }

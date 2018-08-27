@@ -27,14 +27,14 @@ namespace AssetBundleBuilder
         {
             try
             {
-                string path = ABPackHelper.ASSET_PATH + LuaConst.osDir;
+                string path = BuilderPreference.ASSET_PATH;
                 SVNUtility.Commit(path , "提交打包资源");
                 
-                path = ABPackHelper.TEMP_ASSET_PATH + LuaConst.osDir;
+                path = BuilderPreference.TEMP_ASSET_PATH;
                 SVNUtility.Commit(path , "提交临时打包资源");
 
                 SVNUtility.Commit(Application.dataPath , "资源整理");
-                SVNUtility.Commit(ABPackHelper.VERSION_PATH , "版本号更新");
+                SVNUtility.Commit(BuilderPreference.VERSION_PATH , "版本号更新");
             }
             catch (Exception e)
             {

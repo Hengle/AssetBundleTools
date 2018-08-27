@@ -13,9 +13,7 @@ public class BuildUtil : Editor
 {
 
     public static string AssetBundleOutputPath = Application.streamingAssetsPath;
-
-    public static Dictionary<string, AssetBundleElement> dataDict = new Dictionary<string, AssetBundleElement>();     // 深度依赖字典
-
+    
 
     public static bool debug = true;
 
@@ -107,175 +105,14 @@ public class BuildUtil : Editor
     {
         AssetImporter importer = AssetImporter.GetAtPath(path);
         importer.assetBundleName = assetbundleName;
-        importer.assetBundleVariant = ABData.VARIANT_V1;
+        importer.assetBundleVariant = BuilderPreference.VARIANT_V1;
     }
 
 
     public static void SetAssetbundleName(AssetImporter importer, string assetbundleName)
     {
         importer.assetBundleName = assetbundleName;
-        importer.assetBundleVariant = ABData.VARIANT_V1;
-    }
-
-    // 遍历检测深度依赖资源
-    public static void CheckDependencies(string source)
-    {
-        DirectoryInfo folder = new DirectoryInfo(source);
-        FileSystemInfo[] files = folder.GetFileSystemInfos();
-        int length = files.Length;
-       
-        for (int i = 0; i < length; ++i)
-        {
-            //隐藏文件
-            if ((files[i].Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)//&& (files[i].Attributes & FileAttributes.System) != FileAttributes.System)
-            {
-                continue;
-            }
-            //Debug.Log("======== " + files[i].FullName +"===="+ (files[i].Attributes == FileAttributes.Directory) +"==="+ (files[i].Attributes == FileAttributes.Normal));
-
-            //文件夹
-            if (files[i].Attributes == FileAttributes.Directory)
-            {
-                string key = RelativePaths(files[i].FullName);
-
-                if (dataDict.ContainsKey(key))
-                {
-                    Debug.LogError("have same key "+ files[i].FullName);
-                    continue;
-                }
-                AssetBundleElement abInfo = AssetBundleElement.Init(files[i]);
-                abInfo = AssetBundleElement.GetParent(abInfo);
-
-                dataDict.Add(key, abInfo);
-                CheckDependencies(files[i].FullName);
-            }
-            else
-            {
-
-                if (!files[i].Name.EndsWith(".meta"))
-                {
-                    //获取相对路径
-                    string key = RelativePaths(files[i].FullName);
-                    if (dataDict.ContainsKey(key))
-                    {
-                        //Debug.LogError("have same key " + files[i].FullName);
-                        Dependencies(files[i]);
-
-                        continue;
-                    }
-                    AssetBundleElement abInfo = AssetBundleElement.Init(files[i]);
-                    abInfo = AssetBundleElement.GetParent(abInfo);
-
-                    dataDict.Add(key, abInfo);
-                    Dependencies(files[i]);
-
-
-                }
-            }
-
-        }
-    }
-    public static void Dependencies(FileSystemInfo file)
-    {
-        string assetPath = RelativePaths(file.FullName);
-
-
-        string onlyID = AssetDatabase.AssetPathToGUID(assetPath);
-        string[] dependenciesList = AssetDatabase.GetDependencies(assetPath, true);
-        int j = 0;
-
-        AssetBundleElement curABInfo = dataDict[assetPath];
-
-        // 将资源的深度引用加入到字典里面
-        for (int i = 0; i < dependenciesList.Length; ++i)
-        {
-            //忽略自身
-            if(dependenciesList[i] == assetPath)
-            {
-                continue;
-            }
-            //忽略脚本
-            if(dependenciesList[i].Contains(".cs"))
-            {
-                continue;
-            }
-            //忽略shader
-            if (dependenciesList[i].Contains(".shader"))
-            {
-                continue;
-            }
-            //获取相对路径
-            string key = dependenciesList[i];
-            FileInfo info = new FileInfo(dependenciesList[i]);
-            //Debug.LogError(info.FullName);
-            AssetBundleElement abInfo = AssetBundleElement.Init(info);
-            abInfo = AssetBundleElement.GetParent(abInfo);
-
-            if (!curABInfo.referencesDict.ContainsKey(key))
-            {
-                //curABInfo.AddReferences(key, abInfo);
-                curABInfo.referencesDict.Add(key, abInfo);
-                curABInfo.AddReferences(key, abInfo);
-
-            }
-            j++;
-
-            //Debug.LogError(dependenciesList[i] +"===="+ dependenciesList.Length +"==="+ _assetPath+"==="+ j +"===="+ dataDict.ContainsKey(dependenciesList[i]));
-            if (dataDict.ContainsKey(key))
-            {
-                if (!dataDict[key].referencesParentDict.ContainsKey(assetPath))
-                {
-                    dataDict[key].referencesParentDict.Add(assetPath, abInfo);//AddReferencesParent(assetPath, curABInfo);
-                    //dataDict[key].AddReferencesParent(assetPath,abInfo);
-                }
-             
-            }
-            else
-            {
-
-                if (dataDict.ContainsKey(key))
-                {
-                    Debug.LogError("have same key " + info.FullName);
-                    continue;
-                }
-                if(!abInfo.referencesParentDict.ContainsKey(assetPath))
-                {
-                    abInfo.referencesParentDict.Add(assetPath, curABInfo);
-                    //abInfo.AddReferencesParent(assetPath, curABInfo);
-                    //abInfo.AddReferencesParent(assetPath, curABInfo);
-
-                }
-                dataDict.Add(key, abInfo);
-              
-            }
-        }
-    }
-
-    public static void DependenciesLog()
-    {
-        foreach (var item in dataDict)
-        {
-            if(item.Value.fileType == FileType.Folder)
-            {
-                continue;
-            }
-            Debug.LogWarning(item.Key +"-------------------------------------------------------------------------");
-
-            Debug.Log("=path=" + item.Key + "=referencesCount=" + item.Value.referencesCount + "==referencedCount==" + item.Value.referencedCount+"=id=" + AssetDatabase.AssetPathToGUID(item.Key)+"");
-            foreach (var parent in item.Value.referencesDict)
-            {
-                Debug.Log("referencesDict=path1=" + item.Key + "=path=" + parent.Key + "=Extension=" + parent.Value + "=id=");
-
-            }
-
-            foreach (var parent in item.Value.referencesParentDict)
-            {
-                Debug.Log("referencesParentDict=path1=" + item.Key + "=path=" + parent.Key + "=Extension=" + parent.Value + "=id=");
-
-            }
-            Debug.LogWarning("---------------------------------------------------------------------------");
-
-        }
+        importer.assetBundleVariant = BuilderPreference.VARIANT_V1;
     }
 
     public static string GetSelectFilePath()
@@ -411,7 +248,7 @@ public class BuildUtil : Editor
             case FileType.Lua:
                 return new []{ ".lua" };
             }
-        return null;
+        return new string[0];
     }
 
     /// <summary>
@@ -476,6 +313,9 @@ public class BuildUtil : Editor
         string[] allFiles = Directory.GetFiles(rule.Path, "*.*", SearchOption.AllDirectories)
             .Where(f => extensionSet.Contains(Path.GetExtension(f).ToLower())).ToArray();
 
+        for (int i = 0; i < allFiles.Length; i++)
+            allFiles[i] = BuildUtil.RelativePaths(allFiles[i]);
+
         return allFiles;
     }
 
@@ -496,12 +336,30 @@ public class BuildUtil : Editor
         }
         return files;
     }
-
-    public static string RelativePaths(string FullName)
+    
+    public static List<string> SearchIncludeFiles(string folder, SearchOption searchOption , HashSet<string> includeSuffix)
     {
-        string _source = Replace(FullName);
+        string[] folderFiles = Directory.GetFiles(folder, "*.*", searchOption);
+        List<string> files = new List<string>();
+        for (int j = 0; j < folderFiles.Length; j++)
+        {
+            string extension = Path.GetExtension(folderFiles[j]);
+            if (!includeSuffix.Contains(extension)) continue;
+
+            string relativePath = BuildUtil.RelativePaths(folderFiles[j]);
+            files.Add(relativePath);
+        }
+        return files;
+    }
+
+    public static string RelativePaths(string fullName)
+    {
+        string relativePath = Replace(fullName);
+        int index = fullName.IndexOf(':');
         //相对路径
-        string relativePath = "Assets" + _source.Substring(Application.dataPath.Length);
+        if(index > 0)
+         relativePath = "Assets" + relativePath.Substring(Application.dataPath.Length);
+
         return relativePath;
     }
     // 做一下字符串小写转化，斜杆转化
@@ -509,6 +367,21 @@ public class BuildUtil : Editor
     {
         //s.ToLower();
         return s.Replace("\\", "/");
+    }
+
+    /// <summary>
+    /// 检测创建目录
+    /// </summary>
+    /// <param name="path"></param>
+    public static void SwapPathDirectory(string path)
+    {
+        string dir = Path.GetDirectoryName(path);
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+    }
+
+    public static void SwapDirectory(string dir)
+    {
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
     }
 
     public static string GetPlatformFolder(UnityEditor.BuildTarget target)
@@ -780,10 +653,6 @@ public class BuildUtil : Editor
         fs.Close();
     }
 
-    public static void Reset()
-    {
-        dataDict.Clear();
-    }
 
     public enum PlatformType
     {
@@ -794,11 +663,5 @@ public class BuildUtil : Editor
         Mac,
 
     }
-    public enum BuildAssetType
-    {
-        All,                //所以资源
-        All_Res,            //所以res下面的资源
-        Scene,              //所以场景
-        Lua,                //所有lua代码
-    }
+
 }

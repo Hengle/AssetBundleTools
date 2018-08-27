@@ -7,9 +7,7 @@ namespace AssetBundleBuilder
     [Serializable]
     public class AssetBuildRule
     {
-        public string AssetName;
-
-        public string Path; // eg:Assets/xxxx
+        public string Path = "Assets"; // eg:Assets/xxxx
 
         public string AssetBundleName;
         
@@ -17,7 +15,13 @@ namespace AssetBundleBuilder
         /// <summary>
         /// 文件过滤类型
         /// </summary>
-        public FileType FileFilterType;
+        public FileType FileFilterType = FileType.Folder;
+
+        /// <summary>
+        /// 打包方式
+        /// </summary>
+        public BuildType BuildType = 0;
+
         /// <summary>
         /// 加载类型
         /// </summary>
@@ -25,7 +29,8 @@ namespace AssetBundleBuilder
         /// <summary>
         /// 资源包类型
         /// </summary>
-        public PackageAssetType BuildType;
+        public PackageAssetType PackageType;
+        
         /// <summary>
         /// 下载顺序
         /// </summary>
@@ -47,6 +52,8 @@ namespace AssetBundleBuilder
 
         public void RemoveChild(AssetBuildRule rule)
         {
+            if (Childrens == null) return;
+
             List<AssetBuildRule> list = new List<AssetBuildRule>(Childrens);
             list.Remove(rule);
             Childrens = list.ToArray();
@@ -64,6 +71,8 @@ namespace AssetBundleBuilder
         public void TreeToList(AssetBuildRule rule, List<AssetBuildRule> buildRules)
         {
             buildRules.Add(rule);
+
+            if (rule.Childrens == null || rule.BuildType < 0) return;
 
             foreach (AssetBuildRule childRule in rule.Childrens)
                 TreeToList(childRule, buildRules);

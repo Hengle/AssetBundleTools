@@ -8,7 +8,9 @@ namespace AssetBundleBuilder
     public class BuilderPreference
     {
         public const string DEFAULT_CONFIG_NAME = "Assets/ABConfig.asset";
-        
+        public const string VARIANT_V1 = "ab";
+        public const string VARIANT_UNTIY3D = "unity3d";
+
         private static string tempAssetPath;
         private static string assetsPath;
         private static string versionPath;
@@ -34,7 +36,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(buildPath))
                 {
-                    buildPath = Application.dataPath + "/AssetBundle/" + PlatformTargetFolder;
+                    buildPath = "Assets/AssetBundle/" + PlatformTargetFolder;
                     buildPath = buildPath.Replace("\\", "/");
                 }
                 return buildPath;
@@ -89,7 +91,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(streamAssetPath))
                 {
-                    streamAssetPath = Application.streamingAssetsPath + "/" + PlatformTargetFolder;
+                    streamAssetPath = "Assets/StreamingAssets/" + PlatformTargetFolder;
                     streamAssetPath = streamAssetPath.Replace("\\", "/");
                 }
                 return streamAssetPath;
@@ -100,11 +102,23 @@ namespace AssetBundleBuilder
         {
             get
             {
-                if (UnityEditor.EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.Android)
+                if (EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.Android)
                     return "Android";
-                if (UnityEditor.EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.iOS)
+                if (EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.iOS)
                     return "iOS";
                 return "Win";
+            }
+        }
+
+        public static string AppExtension
+        {
+            get
+            {
+                if (EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.Android)
+                    return ".apk";
+                if (EditorUserBuildSettings.activeBuildTarget == UnityEditor.BuildTarget.iOS)
+                    return ".ipa";
+                return ".exe";
             }
         }
     }

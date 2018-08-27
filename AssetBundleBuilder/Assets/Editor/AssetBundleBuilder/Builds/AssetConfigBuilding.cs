@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using Riverlake.Crypto;
-using UnityEditor;
-using UnityEngine;
 
 namespace AssetBundleBuilder
 {
@@ -36,7 +32,7 @@ namespace AssetBundleBuilder
         /// </summary>
         private void BuildBundleNameMapFile()
         {
-            string savePath = BuilderPreference.BUILD_PATH + "/bundlemap.ab";
+            string savePath = BuilderPreference.BUILD_PATH + "/bundles/bundlemap.ab";
             StringBuilder sb = new StringBuilder();
             
             foreach (AssetMap asset in Builder.AssetMaps.Values)
@@ -57,7 +53,7 @@ namespace AssetBundleBuilder
                 string abName = asset.Rule.AssetBundleName;
                 int preload = asset.Rule.LoadType == ELoadType.PreLoad ? 1 : 0;
 
-                string str = string.Format("{0}|{1}.{2}|{3}", assetName.Split('.')[0].ToLower(), abName, ABData.VARIANT_V1, preload);
+                string str = string.Format("{0}|{1}.{2}|{3}", assetName.Split('.')[0].ToLower(), abName, BuilderPreference.VARIANT_V1, preload);
                 sb.AppendLine(str);
             }
 

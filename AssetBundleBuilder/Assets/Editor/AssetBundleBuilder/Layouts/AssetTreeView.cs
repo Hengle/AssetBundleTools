@@ -40,6 +40,7 @@ namespace AssetBundleBuilder
 
         public bool Toggle;
 
+        private AssetTreeModel assetTreeModel;
         public AssetTreeView(TreeViewState state, TreeModel<AssetElement> model) : 
             base(state, model)
         {
@@ -49,6 +50,8 @@ namespace AssetBundleBuilder
         public AssetTreeView(TreeViewState state, MultiColumnHeader multiColumnHeader, TreeModel<AssetElement> model) : 
             base(state, multiColumnHeader, model)
         {
+            assetTreeModel = model as AssetTreeModel;
+
             rowHeight = kRowHeights;
             columnIndexForTreeFoldouts = 1;
             showAlternatingRowBackgrounds = true;
@@ -133,10 +136,14 @@ namespace AssetBundleBuilder
             miniButton.fontSize = 13;
             miniButton.fixedHeight = 20;
 
+            AssetElement parentItem = item.data.parent as AssetElement;
+            bool isDisable = (parentItem.BuildRule.BuildType & item.data.BuildRule.BuildType) != 0; //nothing=0
+            EditorGUI.BeginDisabledGroup(item.data.FileType != FileType.Folder || isDisable);
             for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
             {
                 CellGUI(args.GetCellRect(i), item, (AssetTreeHeader)args.GetColumn(i), ref args);
             }
+            EditorGUI.EndDisabledGroup();
         }
 
         void CellGUI(Rect cellRect, TreeViewItem<AssetElement> item, AssetTreeHeader column, ref RowGUIArgs args)
@@ -145,7 +152,7 @@ namespace AssetBundleBuilder
             CenterRectUsingSingleLineHeight(ref cellRect);
 
             AssetElement element = item.data;
-            AssetBuildRule buildRule = item.data.BuildRule;
+            AssetBuildRule buildRule = element.BuildRule;
             
             switch (column)
             {
@@ -216,36 +223,9 @@ namespace AssetBundleBuilder
                         }
                     }
                     break;
-
-                //            case MyColumns.Object:
                 case AssetTreeHeader.NameAB:
-//                    if (element.FileType != FileType.Folder)
-//                    {
-//                        if (item.data.IsBuild && string.IsNullOrEmpty(item.data.AssetbundleName))
-//                        {
-//                            item.data.AssetbundleName = AssetConfig.AutoABName(item.data.path);
-//                        }
-//                        else
-//                        {
-//                            item.data.AssetbundleName = "";
-//                        }
-//
-                        buildRule.AssetBundleName = EditorGUI.TextField(cellRect, buildRule.AssetBundleName);
-//                        if (!string.IsNullOrEmpty(item.data.AssetbundleName))
-//                        {
-//                            if (item.data.selfObject != null)
-//                            {
-//                                AssetImporter assetImporter = AssetImporter.GetAtPath(item.data.path);
-//                                if (assetImporter != null)
-//                                {
-//                                    assetImporter.assetBundleName = item.data.AssetbundleName;
-//
-//                                }
-//
-//                            }
-//
-//                        }
-//                    }
+//                    EditorGUI.BeginChangeCheck();
+                    buildRule.AssetBundleName = EditorGUI.TextField(cellRect, buildRule.AssetBundleName);
                     break;
                 case AssetTreeHeader.Order:
                     int newOrder = EditorGUI.IntField(cellRect, buildRule.Order);
@@ -253,19 +233,37 @@ namespace AssetBundleBuilder
                         buildRule.Order = Math.Min(newOrder, BuildUtil.GetFileOrder(buildRule.FileFilterType) + 999);
                     break;
                 case AssetTreeHeader.File:
-                    FileType fileFilterType = (FileType)EditorGUI.EnumPopup(cellRect, buildRule.FileFilterType);
-                    if (fileFilterType != buildRule.FileFilterType)
+                    if (element.FileType == FileType.Folder)
                     {
-                        buildRule.FileFilterType = fileFilterType;
-                        buildRule.Order = BuildUtil.GetFileOrder(fileFilterType);
+                        FileType fileFilterType = (FileType) EditorGUI.EnumPopup(cellRect, buildRule.FileFilterType);
+                        if (fileFilterType != buildRule.FileFilterType)
+                        {
+                            buildRule.FileFilterType = fileFilterType;
+                            buildRule.Order = BuildUtil.GetFileOrder(fileFilterType);
+
+                            //刷新子结点
+                            assetTreeModel.AddChildrens(new []{element.id});
+                        }
+                    }
+                    else
+                    {
+                        EditorGUI.LabelField(cellRect, buildRule.FileFilterType.ToString());
                     }
                     break;
-                case AssetTreeHeader.Load:
-                    buildRule.LoadType = (ELoadType)EditorGUI.EnumPopup(cellRect, buildRule.LoadType);
+                case AssetTreeHeader.Build:
+                    if (element.FileType == FileType.Folder)
+                    {
+                        BuildType newBuildType = (BuildType)EditorGUI.EnumMaskField(cellRect, buildRule.BuildType);
+                        if (!newBuildType.Equals(buildRule.BuildType))
+                        {
+                            buildRule.BuildType = newBuildType;
+                            this.assetTreeModel.ReflushChildrenRecursive(element);                            
+                        }
+                    }
                     break;
-                case AssetTreeHeader.PackAsset:
-                    buildRule.BuildType = (PackageAssetType)EditorGUI.EnumPopup(cellRect, buildRule.BuildType);
-                    break;
+//                case AssetTreeHeader.PackAsset:
+//                    buildRule.BuildType = (PackageAssetType)EditorGUI.EnumPopup(cellRect, buildRule.BuildType);
+//                    break;
             }
         }
 
@@ -355,20 +353,20 @@ namespace AssetBundleBuilder
                     minWidth = 80,
                     autoResize = false
                 },
+//                new MultiColumnHeaderState.Column
+//                {
+//                    headerContent = new GUIContent("Load", "资源加载的类型设置，0 :无，1：预加载"),
+//                    headerTextAlignment = TextAlignment.Center,
+//                    sortedAscending = true,
+//                    sortingArrowAlignment = TextAlignment.Left,
+//                    width = 100,
+//                    minWidth = 80,
+//                    autoResize = false
+//                }
+//                ,
                 new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("Load", "资源加载的类型设置，0 :无，1：预加载"),
-                    headerTextAlignment = TextAlignment.Center,
-                    sortedAscending = true,
-                    sortingArrowAlignment = TextAlignment.Left,
-                    width = 100,
-                    minWidth = 80,
-                    autoResize = false
-                }
-                ,
-                new MultiColumnHeaderState.Column
-                {
-                    headerContent = new GUIContent("PackAsset", "资源的分包设置：整包资源(包体)，整包资源(非包体)，补丁资源 ，不需要下载"),
+                    headerContent = new GUIContent("Together Build", "打包方式,整体/分开"),
                     headerTextAlignment = TextAlignment.Center,
                     sortedAscending = true,
                     sortingArrowAlignment = TextAlignment.Left,

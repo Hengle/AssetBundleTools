@@ -44,7 +44,7 @@ namespace AssetBundleBuilder
         /// </summary>
         public static void UpdateTempAssets()
         {
-            string path = ABPackHelper.TEMP_ASSET_PATH + LuaConst.osDir;
+            string path = BuilderPreference.TEMP_ASSET_PATH;
             if (Directory.Exists(path))
             {
                 SVNUtility.Update(path);
@@ -56,16 +56,18 @@ namespace AssetBundleBuilder
         /// </summary>
         public static void UpdateAssets()
         {
-            string path = ABPackHelper.ASSET_PATH + LuaConst.osDir;
+            string path = BuilderPreference.ASSET_PATH;
             SVNUtility.Update(path);
             AssetDatabase.Refresh();
 
-            var destVersionPath = ABPackHelper.VERSION_PATH + "version.txt";
-            if (!File.Exists(destVersionPath)) destVersionPath = ABPackHelper.ASSET_PATH + LuaConst.osDir + "/version.txt";
-            var versionPath = ABPackHelper.BUILD_PATH + LuaConst.osDir + "/version.txt";
+            var destVersionPath = BuilderPreference.VERSION_PATH + "version.txt";
+            if (!File.Exists(destVersionPath)) destVersionPath = BuilderPreference.ASSET_PATH + "/version.txt";
+            var versionPath = BuilderPreference.BUILD_PATH + "/version.txt";
             File.Copy(destVersionPath, versionPath, true);
-            if (File.Exists(versionPath) && AssetBundleEditor.gameVersion == null)
-                AssetBundleEditor.gameVersion = GameVersion.CreateVersion(File.ReadAllText(versionPath));
+
+//            if (File.Exists(versionPath) && AssetBundleEditor.gameVersion == null)
+//                AssetBundleEditor.gameVersion = GameVersion.CreateVersion(File.ReadAllText(versionPath));
+
             AssetDatabase.Refresh();
         }
 

@@ -14,17 +14,24 @@ namespace AssetBundleBuilder
         public GUIContent[] OnekeyBuilds = new GUIContent[]
         {
             new GUIContent("All Build"),
-            new GUIContent("All Update Assets Build"),
-            new GUIContent("All Update Package Build"),   
+            new GUIContent("All Assets Build"),
+            new GUIContent("All Package Build"),   
         };
 
 
         public AutoBuildType[] AutoBuilds = new AutoBuildType[]
         {
             AutoBuildType.ALLBuild, 
-            AutoBuildType.UpdateAssetBuild, 
-            AutoBuildType.UpdatePackageBuild, 
+            AutoBuildType.AllAssetBuild, 
+            AutoBuildType.AllPackageBuild, 
         };
 
+
+        public GUIContent[] BuildOptions = new GUIContent[]
+        {
+            new GUIContent("Seperate"), 
+            new GUIContent("TogetherFolders"),
+            new GUIContent("TogetherFiles"),  
+        };
     }
 }

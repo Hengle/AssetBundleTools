@@ -19,10 +19,6 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
-            bool rebuildAll = false;
-            // 打包lua
-            Packager.BuildAssetResource(EditorUserBuildSettings.activeBuildTarget, rebuildAll);
-
             yield return null;
 
             //压缩资源
@@ -34,14 +30,14 @@ namespace AssetBundleBuilder
             }
         }
 
-        public static void CopyAssets(string fromPath)
+        public void CopyAssets(string fromPath)
         {
             string toPath = BuilderPreference.ASSET_PATH ;
             if (Directory.Exists(toPath)) Directory.Delete(toPath, true);
             Directory.CreateDirectory(toPath);
 
             var dirInfo = new DirectoryInfo(fromPath);
-//            ShowProgress("", 0);
+            Builder.AddBuildLog("Copying assets...");
             int index = 0;
             FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
             foreach (var file in files)
@@ -51,9 +47,10 @@ namespace AssetBundleBuilder
                 if (file.Name.EndsWith(".meta") || file.Name.EndsWith(".manifest") || file.Name.Contains("config.txt"))
                     continue;
 
-                string relativePath = file.FullName.Replace("\\", "/");
+                string relativePath = BuildUtil.RelativePaths(file.FullName);
                 string to = relativePath.Replace(fromPath, toPath);
-                if (!Directory.Exists(to)) Directory.CreateDirectory(to);
+
+                BuildUtil.SwapPathDirectory(to);
 
                 if (relativePath.EndsWith(".ab"))
                 {
@@ -73,18 +70,20 @@ namespace AssetBundleBuilder
         static void ResetFlist()
         {
             string root = BuilderPreference.ASSET_PATH;
-            string flistPath = root + "/files.txt";
+            string flistPath = root + "/bundles/files.txt";
             string[] fs = File.ReadAllLines(flistPath);
             List<string> list = new List<string>();
+            StringBuilder builder = new StringBuilder();
             for (int i = 0; i < fs.Length; ++i)
             {
                 string[] elements = fs[i].Split('|');
                 Debug.Assert(elements.Length >= 3);
-                StringBuilder builder = new StringBuilder();
+                builder.Length = 0;
+
                 for (int j = 0; j < elements.Length; ++j)
                 {
                     if (j == 2)
-                        builder.Append(File.ReadAllBytes(root + "/" + elements[0]).Length);
+                        builder.Append(new FileInfo(root + "/" + elements[0]).Length);
                     else
                         builder.Append(elements[j]);
                     if (j != elements.Length - 1) builder.Append('|');
@@ -94,7 +93,7 @@ namespace AssetBundleBuilder
             File.WriteAllLines(flistPath, list.ToArray());
         }
 
-        public static void CopyToTempAssets()
+        public void CopyToTempAssets()
         {
             string fromPath = BuilderPreference.BUILD_PATH;
             string toPath = BuilderPreference.TEMP_ASSET_PATH;
@@ -102,7 +101,8 @@ namespace AssetBundleBuilder
             Directory.CreateDirectory(toPath);
 
             var dirInfo = new DirectoryInfo(fromPath);
-//            ShowProgress("", 0);
+            Builder.AddBuildLog("Copying to temp assets...");
+
             int index = 0;
             FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
             foreach (var file in files)
@@ -112,10 +112,10 @@ namespace AssetBundleBuilder
                 if (file.Name.EndsWith(".meta") || file.Name.Contains("config.txt"))
                     continue;
 
-                string relativePath = file.FullName.Replace("\\", "/");
+                string relativePath = BuildUtil.RelativePaths(file.FullName);
                 string to = relativePath.Replace(fromPath, toPath);
 
-                if (!Directory.Exists(to)) Directory.CreateDirectory(to);
+                BuildUtil.SwapPathDirectory(to);
 
                 File.Copy(relativePath, to, true);
             }

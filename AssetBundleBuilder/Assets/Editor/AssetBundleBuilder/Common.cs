@@ -9,7 +9,7 @@ namespace AssetBundleBuilder
 
     public enum AssetTreeHeader
     {
-        Icon , AssetName , NameAB, Order , File , Load , PackAsset
+        Icon , AssetName , NameAB, Order , File , Build //, PackAsset
     }
 
     [Description("资源文件类型")]
@@ -45,6 +45,12 @@ namespace AssetBundleBuilder
         Other = 100,
     }
 
+    [System.Flags]
+    public enum BuildType
+    {
+        TogetherFiles = 1 << 0,    // 目录下所有文件一起打包
+        TogetherFolders = 1 << 1,    // 目录下所有目录一起打包
+    }
 
     /// <summary>
     /// 资源类型
@@ -57,22 +63,14 @@ namespace AssetBundleBuilder
         NoNeedToDownload,   // 不需要下载的资源()
     }
 
-
-    public enum BuildType
-    {
-        BuildResource = 1 << 1,     //打包资源
-        BuildConfigTable = 1 << 2,  //打包配置表
-        BuildLua = 1 << 3,           //打包Lua
-    }
-
     /// <summary>
     /// 一键打包
     /// </summary>
     public enum AutoBuildType
     {
         ALLBuild ,      //一键打包
-        UpdateAssetBuild ,  //一键打包更新资源
-        UpdatePackageBuild  //一键打包强更包
+        AllAssetBuild ,  //一键打包更新资源
+        AllPackageBuild  //一键打包强更包
     }
 
 }

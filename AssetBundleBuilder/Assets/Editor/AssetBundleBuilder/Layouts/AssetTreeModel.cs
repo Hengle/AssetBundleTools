@@ -51,14 +51,10 @@ namespace AssetBundleBuilder
 
             if (childItem == null)
             {
-                childItem = CreateTreeViewItemForGameObject(new DirectoryInfo(folderPath));
-                childItem.parent = root;
+                childItem = CreateTreeViewItemForGameObject(new DirectoryInfo(folderPath) , root ,
+                                                             root.children == null ? 0 : root.children.Count);
             }
             
-            if (root.children == null)
-                root.children = new List<TreeElement>();
-
-            root.children.Add(childItem);
             m_Data.Add(childItem);
             index++;
 
@@ -109,6 +105,23 @@ namespace AssetBundleBuilder
 
                 AddChildrenRecursive(ele.BuildRule.Path , ele , m_Data , true);
             }
+
+            this.Changed();
+        }
+
+        /// <summary>
+        /// 刷新选择项中的数据
+        /// </summary>
+        /// <param name="selections"></param>
+        public void ReflushChildrens(IList<int> selections)
+        {
+            for (int i = 0; i < selections.Count; i++)
+            {
+                AssetElement ele = Find(selections[i]);
+                ReflushChildrenRecursive(ele);
+            }
+
+            this.Changed();
         }
 
 
@@ -119,85 +132,74 @@ namespace AssetBundleBuilder
 
             FileSystemInfo[] files = folder.GetFileSystemInfos();
             int length = files.Length;
+
+            string[] includeExtensions = BuildUtil.GetFileExtension(item.BuildRule.FileFilterType);
+            HashSet<string> includeSet = new HashSet<string>();
+            if (includeExtensions != null)
+            {
+                for (int i = 0; i < includeExtensions.Length; i++)
+                    includeSet.Add(includeExtensions[i]);
+            }
+
+            HashSet<string> includes = new HashSet<string>();
             for (int i = 0; i < length; ++i)
             {
                 //隐藏文件
-                if ((files[i].Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)//&& (files[i].Attributes & FileAttributes.System) != FileAttributes.System)
+                if ((files[i].Attributes & FileAttributes.Hidden) == FileAttributes.Hidden || files[i].Name.EndsWith(".meta"))//&& (files[i].Attributes & FileAttributes.System) != FileAttributes.System)
                 {
                     continue;
                 }
-                if (files[i] is DirectoryInfo)
+
+                string extension = Path.GetExtension(files[i].Name);
+                if(!string.IsNullOrEmpty(extension) && !includeSet.Contains(extension)) continue;
+
+                AssetElement childItem = null;
+                if (checkHave)
                 {
-                    if (checkHave)
+                    string guid = AssetDatabase.AssetPathToGUID(BuildUtil.RelativePaths(files[i].FullName));
+                    childItem = FindGuid(guid);
+
+                    if (childItem == null)
                     {
-                        string guid = AssetDatabase.AssetPathToGUID(BuildUtil.RelativePaths(files[i].FullName));
-                        AssetElement e = FindGuid(guid);
+                        childItem = CreateTreeViewItemForGameObject(files[i] , item, i);
 
-                        if (e == null)
-                        {
-                            var childItem = CreateTreeViewItemForGameObject(files[i]);
-                            addChildrenElement(childItem, item, i);
-
-                            if (rows.Count > index)
-                                rows.Insert(index, childItem);
-                            else
-                                rows.Add(childItem);
-                            
-                            //AddChildrenRecursive(files[i].FullName, item, rows, checkHave);
-                        }
+                        if (rows.Count > index)
+                            rows.Insert(index, childItem);
                         else
-                        {
-                            index++;
-                            //AddChildrenRecursive(files[i].FullName, e, rows, checkHave);
-
-                        }
-                    }
-                    else
-                    {
-                        var childItem = CreateTreeViewItemForGameObject(files[i]);
-                        addChildrenElement(childItem, item, i);
-
-                        rows.Add(childItem);
-                        //AddChildrenRecursive(files[i].FullName, childItem, rows, checkHave);
+                            rows.Add(childItem);
                     }
                 }
                 else
                 {
-                    if (!files[i].Name.EndsWith(".meta"))
-                    {
-                        if (checkHave)
-                        {
-                            string guid = AssetDatabase.AssetPathToGUID(BuildUtil.RelativePaths(files[i].FullName));
-                            AssetElement e = FindGuid(guid);
+                    childItem = CreateTreeViewItemForGameObject(files[i] , item, i);
 
-                            if (e == null)
-                            {
-                                var childItem = CreateTreeViewItemForGameObject(files[i]);
-                                addChildrenElement(childItem, item, i);
-
-                                if (rows.Count > index)
-                                    rows.Insert(index, childItem);
-                                else
-                                    rows.Add(childItem);
-                            }
-                            else
-                            {
-                                index++;
-                            }
-                        }
-                        else
-                        {
-                            var childItem = CreateTreeViewItemForGameObject(files[i]);
-                            addChildrenElement(childItem , item , i);
-                            rows.Add(childItem);
-                        }
-                    }
+                    rows.Add(childItem);
+                    //AddChildrenRecursive(files[i].FullName, childItem, rows, checkHave);
                 }
+                
+                childItem.Reflush();
+                
+                includes.Add(childItem.GUID);
                 //Debug.LogError(rows.Count + "====" + index + "===" + files[i].Name);
+            }
+
+            //删除旧数据
+            if (item.children != null && item.children.Count != includes.Count)
+            {
+                for (int i = item.children.Count - 1; i >= 0; i--)
+                {
+                    TreeElement element = item.children[i];
+                    if (!includes.Contains(element.GUID))
+                    {
+                        item.children.RemoveAt(i);
+                        m_Data.Remove(element as AssetElement);
+                    }
+                        
+                }
             }
         }
 
-        static AssetElement CreateTreeViewItemForGameObject(FileSystemInfo file)
+        static AssetElement CreateTreeViewItemForGameObject(FileSystemInfo file , AssetElement parent , int insertIndex)
         {
             // We can use the GameObject instanceID for TreeViewItem id, as it ensured to be unique among other items in the tree.
             // To optimize reload time we could delay fetching the transform.name until it used for rendering (prevents allocating strings 
@@ -207,25 +209,41 @@ namespace AssetBundleBuilder
             
             AssetElement newEle = new AssetElement(file);
             newEle.id = index;
+            newEle.parent = parent;
+
+            if (parent.BuildRule != null)
+            {
+                if(!string.IsNullOrEmpty(parent.BuildRule.AssetBundleName))
+                    newEle.BuildRule.AssetBundleName = string.Concat(parent.BuildRule.AssetBundleName, "/", newEle.BuildRule.AssetBundleName);
+
+                parent.BuildRule.AddChild(newEle.BuildRule);
+            }
             
-            return newEle;
-        }
-
-
-        private void addChildrenElement(AssetElement element, AssetElement parent, int insertIndex)
-        {
-            element.parent = parent;
-
             if (parent.children == null)
                 parent.children = new List<TreeElement>();
 
             if (parent.children.Count > insertIndex)
-                parent.children.Insert(insertIndex, element);
+                parent.children.Insert(insertIndex, newEle);
             else
-                parent.children.Add(element);
+                parent.children.Add(newEle);
 
-            parent.BuildRule.AddChild(element.BuildRule);
+            return newEle;
         }
+
+
+        public void ReflushChildrenRecursive(AssetElement item)
+        {
+            if (item.children == null) return;
+
+            for (int i = 0; i < item.children.Count; i++)
+            {
+                AssetElement childItem = item.children[i] as AssetElement;
+                childItem.Reflush();
+
+                ReflushChildrenRecursive(childItem);
+            }
+        }
+
 
         /// <summary>
         /// 删除选择的单元项
@@ -252,7 +270,17 @@ namespace AssetBundleBuilder
 
         public void Save()
         {
-            if (root.children == null || root.children.Count <= 0) return;
+            if (root.children == null || root.children.Count <= 0)
+            {
+                string defaultConfigPath = BuilderPreference.DEFAULT_CONFIG_NAME;
+                if (File.Exists(defaultConfigPath))
+                {
+                    File.Delete(defaultConfigPath);
+                    AssetDatabase.Refresh();
+                }
+
+                return;
+            }
 
             AssetBuildRule[] rules = new AssetBuildRule[root.children.Count];
             for (int i = 0; i < root.children.Count; i++)

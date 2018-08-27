@@ -45,7 +45,7 @@ namespace AssetBundleBuilder
                 //var lastVersion = GameVersion.CreateVersion(version);
                 //lastVersion.VersionDecrease();
                 //string last_upload_path = string.Format("update/{0}/{1}/{2}", app_name, channel_name, lastVersion.ToString());
-                string local_path = (ABPackHelper.ASSET_PATH + LuaConst.osDir).Replace("\\", "/");
+                string local_path = BuilderPreference.ASSET_PATH;
                 string args = string.Format(" {0} {1} {2} android", script_path, upload_path, local_path);
                 SVNUtility.Upload(args);
                 string upload_fail_path = Application.dataPath.Replace("/Assets", "") + "uploadfaild_list.txt";

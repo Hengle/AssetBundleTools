@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using Riverlake.Crypto;
 using UnityEditor;
@@ -12,7 +11,7 @@ using ZstdNet;
 namespace AssetBundleBuilder
 {
     /// <summary>
-    /// 分包阶段，打包资源完成后，将不同资源拷贝到对应包体对应的目录
+    /// 资源分包阶段，打包资源完成后，将不同资源拷贝到对应包体对应的目录
     /// </summary>
     public class PackageBuilding : ABuilding
     {
@@ -23,7 +22,29 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
-            return base.OnBuilding();
+            if (Builder.AutoBuild == AutoBuildType.ALLBuild)
+            {
+                //打包测试包
+                CopyPackableFiles();
+
+                yield return null;
+
+                BuildApp(false, false);
+
+                yield return null;
+
+            }
+
+            CopyAllBundles();
+
+            yield return null;
+
+            BuildApp(true, Builder.AutoBuild == AutoBuildType.AllPackageBuild);
+
+
+            yield return null;
+
+            ResetConfig();
         }
 
         /// <summary>
@@ -36,49 +57,58 @@ namespace AssetBundleBuilder
             Directory.CreateDirectory(targetPath);
 
             string bundlePath = BuilderPreference.BUILD_PATH;
-            HashSet<string> includeExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
-            string[] files = Directory.GetFiles(bundlePath, "*.*", SearchOption.AllDirectories)
-                .Where(s => includeExtensions.Contains(Path.GetExtension(s).ToLower())).ToArray();
+            
+            //拷贝StreamAsset目录中的资源
+            AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
+            Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
 
-            int buildlePathLength = bundlePath.Length + 1;
-            for (int i = 0; i < files.Length; ++i)
+            for (int i = 0; i < rules.Length; i++)
             {
-                string fileName = Path.GetFileName(files[i]);
-                if (fileName == "tempsizefile.txt" || fileName == "luamd5.txt") continue;
-
-                //ABPackHelper.ShowProgress("Copying files...", (float)i / (float)files.Length);
-                string streamFilePath = files[i].Replace("\\", "/").Replace(bundlePath , targetPath);
-                if (!Directory.Exists(streamFilePath))  Directory.CreateDirectory(streamFilePath);
-
-//                var file = tempStr.ToLower();
-//                if (file.EndsWith(".ab"))
-//                {
-//                    bool copyed = false;
-//                    //todo ab Type Map is null
-////                    foreach (var key in abTypeMaps.Keys)
-////                    {
-////                        var value = abTypeMaps[key.ToLower()].Split('.');
-////                        if ((file.Contains(key) && Convert.ToInt32(value[0]) == 0)
-////                            || file.Contains(LuaConst.osDir.ToLower() + ".ab")
-////                            || file.Contains("bundlemap.ab") || file.Contains("shader.ab")
-////                            || file.Contains("font.ab") || file.Contains("scene_public.ab"))
-////                        {
-////                            copyed = true;
-////                            File.Copy(files[i], targetPath + "/" + tempStr);
-////                            break;
-////                        }
-////                    }
-//                    if (!copyed && file.Contains("_effect", StringComparison.OrdinalIgnoreCase))
-//                    {
-//                        File.Copy(files[i], targetPath + "/" + tempStr);
-//                    }
-//                }
-//                else
-//                {
-//                    File.Copy(files[i], targetPath + "/" + tempStr);
-//                }
+                List<AssetBuildRule> ruleList = rules[i].TreeToList();
+                for (int j = 0; j < ruleList.Count; j++)
+                {
+                    ruleMap[ruleList[j].AssetBundleName] = ruleList[j];
+                }
             }
-//            AssetDatabase.Refresh();
+
+            //只拷贝整包类型的文件
+            foreach (AssetBuildRule bundleRule in ruleMap.Values)
+            {
+                if(bundleRule.PackageType != PackageAssetType.InPackage)  continue;
+
+                string buildBundlePath = string.Concat(bundlePath,"/", bundleRule.AssetBundleName , BuilderPreference.VARIANT_V1);
+                string streamBundlePath = string.Concat(targetPath, "/", bundleRule.AssetBundleName, BuilderPreference.VARIANT_V1);
+
+                BuildUtil.SwapPathDirectory(streamBundlePath);
+
+                File.Copy(buildBundlePath , streamBundlePath);
+            }
+
+            Action<List<string>, string> copyFiles = (filePaths , rootPath) =>
+            {
+                for (int i = 0; i < filePaths.Count; i++)
+                {
+                    string relativePath = filePaths[i];
+                    string streamBundlePath = relativePath.Replace(rootPath, targetPath);
+
+                    BuildUtil.SwapPathDirectory(streamBundlePath);
+
+                    File.Copy(relativePath, streamBundlePath);
+                }
+            };
+
+            HashSet<string> includeExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
+            //拷贝bundle配置目录的配置文件
+            string bundleConfigPath = string.Concat(bundlePath, "/bundles/");
+            List<string> files = BuildUtil.SearchIncludeFiles(bundleConfigPath, SearchOption.AllDirectories, includeExtensions);
+            copyFiles(files, bundleConfigPath);
+
+            //拷贝Lua目录代码
+            string luaBundlePath = string.Concat(bundlePath, "/lua/");
+            files = BuildUtil.SearchIncludeFiles(luaBundlePath, SearchOption.AllDirectories, includeExtensions);
+            copyFiles(files, luaBundlePath);
+
+            AssetDatabase.Refresh();
             //ABPackHelper.ShowProgress("", 1);
             CompressWithZSTD(1024 * 1024 * 10);
         }
@@ -88,45 +118,26 @@ namespace AssetBundleBuilder
             string targetPath = BuilderPreference.StreamingAssetsPlatormPath;
             if (Directory.Exists(targetPath))   Directory.Delete(targetPath, true);
             Directory.CreateDirectory(targetPath);
-
-
+            
             string buildPath = BuilderPreference.BUILD_PATH;
             HashSet<string> withExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
-            string[] files = Directory.GetFiles(targetPath, "*.*", SearchOption.AllDirectories)
-                .Where(s => withExtensions.Contains(Path.GetExtension(s).ToLower())).ToArray();
+            List<string> files = BuildUtil.SearchIncludeFiles(targetPath, SearchOption.AllDirectories , withExtensions);
 
 //            ABPackHelper.ShowProgress("", 0);
-            int buildPathLength = buildPath.Length + 1; 
-            for (int i = 0; i < files.Length; ++i)
+//            int buildPathLength = buildPath.Length + 1; 
+            for (int i = 0; i < files.Count; ++i)
             {
                 string fileName = Path.GetFileName(files[i]);
                 if (fileName == "tempsizefile.txt" || fileName == "luamd5.txt") continue;
                 //ABPackHelper.ShowProgress("Copying files...", (float)i / (float)files.Length);
+                
+                string streamBundlePath = files[i].Replace(buildPath, targetPath);
 
-                var tempStr = files[i].Replace("\\", "/").Substring(buildPathLength);
-                var dirs = tempStr.Split('/');
-                var tempDir = targetPath;
-                for (int j = 0; j < dirs.Length - 1; ++j)
-                {
-                    tempDir += "/" + dirs[j];
-                    if (!Directory.Exists(tempDir))
-                        Directory.CreateDirectory(tempDir);
-                }
-                var file = ABPackHelper.GetRelativeAssetsPath(files[i]);
-                bool needCopy = true;
-                //todo abTypeMap is null
-//                foreach (var key in abTypeMaps.Keys)
-//                {
-//                    var value = abTypeMaps[key.ToLower()].Split('.');
-//                    if (file.Contains(key) && Convert.ToInt32(value[0]) == 3)
-//                    {
-//                        needCopy = false;
-//                        break;
-//                    }
-//                }
-                if (needCopy) File.Copy(files[i], targetPath + "/" + tempStr);
+                BuildUtil.SwapPathDirectory(streamBundlePath);
+                
+                File.Copy(files[i], streamBundlePath);
             }
-//            AssetDatabase.Refresh();
+            AssetDatabase.Refresh();
 //            ABPackHelper.ShowProgress("", 1);
             CompressWithZSTD(1024 * 1024 * 5);
         }
@@ -148,12 +159,11 @@ namespace AssetBundleBuilder
             for (int i = 0; i < dirs.Length; ++i)
             {
                 if (dirs[i].Name == "lua") continue;
-                var abFileInfos = dirs[i].GetFiles("*.*", SearchOption.AllDirectories);
-                for (int j = 0; j < abFileInfos.Length; ++j)
+                var abFileInfos = BuildUtil.SearchFiles(dirs[i].FullName , SearchOption.AllDirectories);
+                for (int j = 0; j < abFileInfos.Count; ++j)
                 {
-                    if (abFileInfos[j].FullName.EndsWith(".meta")) continue;
-                    var fileName = ABPackHelper.GetRelativeAssetsPath(abFileInfos[j].FullName);
-                    var data = File.ReadAllBytes(fileName);
+                    var relativePath = abFileInfos[j];
+                    var data = new FileInfo(relativePath);
                     if (data.Length >= maxFileSize)
                     {
                         curSize = 0;
@@ -164,12 +174,16 @@ namespace AssetBundleBuilder
                         curSize = 0;
                         tmpIndex++;
                     }
-                    if (curSize == 0) allFiles.Add(tmpIndex, new List<string>());
-                    allFiles[tmpIndex].Add(fileName);
+
+                    if (curSize == 0)
+                        allFiles.Add(tmpIndex, new List<string>());
+
+                    allFiles[tmpIndex].Add(relativePath);
                     curSize += data.Length;
                 }
             }
             int index = 0;
+
             // 合并生成的bundle文件，合成10M左右的小包(二进制)
             int pathLength = outPutPath.Length + 1;
             foreach (var key in allFiles.Keys)
@@ -195,7 +209,7 @@ namespace AssetBundleBuilder
                     }
                 }
             }
-            ABPackHelper.ShowProgress("Finished...", 1);
+//            ABPackHelper.ShowProgress("Finished...", 1);
             for (int i = 0; i < dirs.Length; ++i)
             {
                 if (dirs[i].Name == "lua") continue;
@@ -204,47 +218,46 @@ namespace AssetBundleBuilder
             AssetDatabase.Refresh();
 
             // 对合并后的文件进行压缩
-            ABPackHelper.ShowProgress("Hold on...", 0);
+            Builder.AddBuildLog("compress with zstd...");
             var pakFiles = Directory.GetFiles(outPutPath, "*.tmp", SearchOption.AllDirectories);
             for (int i = 0; i < pakFiles.Length; ++i)
             {
                 var savePath = string.Format("{0}/{1}.bin", outPutPath, Path.GetFileNameWithoutExtension(pakFiles[i]));
-                ABPackHelper.ShowProgress("compress with zstd...", (float)i / (float)pakFiles.Length);
-                var fileName = ABPackHelper.GetRelativeAssetsPath(pakFiles[i]);
+//                ABPackHelper.ShowProgress("compress with zstd...", (float)i / (float)pakFiles.Length);
+                var fileName = BuildUtil.RelativePaths(pakFiles[i]);
                 using (var compressFs = new FileStream(savePath, FileMode.CreateNew))
                 {
                     using (var compressor = new Compressor(new CompressionOptions(CompressionOptions.MaxCompressionLevel)))
                     {
                         var bytes = compressor.Wrap(File.ReadAllBytes(fileName));
 #if UNITY_IOS
-                    bytes = Crypto.Encode(bytes);
+                        bytes = Crypto.Encode(bytes);
 #endif
                         compressFs.Write(bytes, 0, bytes.Length);
                     }
                 }
                 File.Delete(fileName);
             }
-            ABPackHelper.ShowProgress("Finished...", 1);
+            AssetDatabase.Refresh();
+
+            Builder.AddBuildLog("Compress Zstd Finished...");
 
             // 生成包体第一次进入游戏解压缩配置文件
             StringBuilder builder = new StringBuilder();
-            string[] allfiles = Directory.GetFiles(outPutPath, "*.*", SearchOption.AllDirectories);
-            for (int i = 0; i < allfiles.Length; ++i)
+            List<string> allfiles = BuildUtil.SearchFiles(outPutPath, SearchOption.AllDirectories);
+            for (int i = 0; i < allfiles.Count; ++i)
             {
-                if (allfiles[i].EndsWith(".meta")) continue;
                 if (allfiles[i].EndsWith("datamap.ab")) continue;
 
-                var fileName = allfiles[i].Replace("\\", "/").Substring(pathLength);
-                builder.Append(fileName);
-                builder.Append('|');
-                builder.Append(MD5.ComputeHashString(allfiles[i]));
-                builder.Append("\n");
+                var relativePath = allfiles[i].Substring(pathLength);
+                string md5 = MD5.ComputeHashString(allfiles[i]);
+
+                builder.AppendLine(string.Format("{0}|{1}" ,relativePath , md5));
             }
 
             var packFlistPath = outPutPath + "/packlist.txt";
-            if (File.Exists(packFlistPath)) File.Delete(packFlistPath);
             File.WriteAllText(packFlistPath, builder.ToString());
-//            AssetDatabase.Refresh();
+            AssetDatabase.Refresh();
         }
 
 
@@ -256,109 +269,112 @@ namespace AssetBundleBuilder
             if (Builder.IsAutoConnectProfile) option |= BuildOptions.ConnectWithProfiler;
 
 //            var temps = Apk_Save_Path.Replace("\\", "/").Split('/');
-//            if ((ABPackHelper.GetBuildTarget() == BuildTarget.Android
-//                || ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows64
-//                || ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows)
-//                && sdkConfig != null)
-//            {
-//                string lastChannel = string.Empty;
-//                for (int i = 0; i < sdkConfig.items.Count; ++i)
-//                {
-//                    StringBuilder final_path = new StringBuilder();
-//                    for (int j = 0; j < temps.Length - 1; ++j)
-//                    {
-//                        final_path.Append(temps[j] + "/");
-//                    }
-//                    var item = sdkConfig.items[i];
-//                    if (item.need_subpack == 0 && !packAllRes) continue;
-//                    if (ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows64 || ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows)
-//                    {
-//                        final_path.Append(DateTime.Now.ToString("yyyyMMdd") + "/");
-//                        if (!Directory.Exists(final_path.ToString())) Directory.CreateDirectory(final_path.ToString());
-//                        final_path.Append(item.game_name + "_v");
-//                    }
-//                    else
-//                    {
-//                        if (packAllRes)
-//                        {
-//                            if (item.development == 1)
-//                            {
-//                                option |= BuildOptions.Development;
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_allpack_dev_v");
-//                            }
-//                            else if (item.use_sdk == 1)
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_allpack_sdk_v");
-//                            else
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_allpack_test_v");
-//                        }
-//                        else
-//                        {
-//                            if (item.development == 1)
-//                            {
-//                                option |= BuildOptions.Development;
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_subpack_dev_v");
-//                            }
-//                            else if (item.use_sdk == 1)
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_subpack_sdk_v");
-//                            else
-//                                final_path.Append(item.game_name + DateTime.Now.ToString("yyyyMMdd") + "_subpack_test_v");
-//                        }
-//                    }
-//                    //final_path.Append(gameVersion.ToString());
-//                    if (ABPackHelper.GetBuildTarget() == BuildTarget.Android)
-//                    {
-//                        final_path.Append(".apk");
-//                        if (File.Exists(final_path.ToString())) File.Delete(final_path.ToString());
-//                        // 写入并保存sdk启用配置
-//                        item.CopyConfig();
-//                        item.CopySDK();
-//                        item.SetPlayerSetting(sdkConfig.splash_image);
-//                        item.SaveSDKConfig();
-//                        //item.SplitAssets(sdkConfig.split_assets);
-//                        if (item.update_along == 0 && forceUpdate)
-//                        {
-//                            if (Directory.Exists(Application.streamingAssetsPath)) Directory.Delete(Application.streamingAssetsPath, true);
-//                        }
-//                    }
-//                    else if (ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows64 || ABPackHelper.GetBuildTarget() == BuildTarget.StandaloneWindows)
-//                    {
-//                        final_path.Append(".exe");
-//                        if (Directory.Exists(final_path.ToString())) Directory.Delete(final_path.ToString(), true);
-//                        item.CopyConfig();
-//                    }
-//                    AssetDatabase.Refresh();
-//                    BuildPipeline.BuildPlayer(ABPackHelper.GetBuildScenes(), final_path.ToString(), ABPackHelper.GetBuildTarget(), option);
-//                    AssetDatabase.Refresh();
-//                    item.ClearSDK();
-//
+            string dir = Path.GetDirectoryName(Builder.ApkSavePath);
+            string fileName = Path.GetFileNameWithoutExtension(Builder.ApkSavePath);
+            string time = DateTime.Now.ToString("yyyyMMdd");
+            string flag = string.Empty;
+
+            BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
+
+            if (buildTarget != BuildTarget.iOS)
+            {
+
+                var item = Builder.SDKConfig.items[Builder.ActiveSdkIndex];
+            
+                if (item.development == 1)
+                {
+                    option |= BuildOptions.Development;
+                    flag = packAllRes ? "_allpack_dev_v" : "_subpack_dev_v";
+                }
+                else if (item.use_sdk == 1)
+                    flag = packAllRes ? "_allpack_sdk_v" : "_subpack_sdk_v";
+                else
+                    flag = packAllRes ? "_allpack_test_v" : "_subpack_test_v";
+
+                string final_path = string.Empty;
+                if (buildTarget == BuildTarget.Android)
+                {
+                    final_path = string.Concat(dir , fileName , time, flag, Builder.GameVersion.ToString(),".apk");
+                    if (File.Exists(final_path)) File.Delete(final_path);
+                    // 写入并保存sdk启用配置
+                    item.CopyConfig();
+                    item.CopySDK();
+                    item.SetPlayerSetting(Builder.SDKConfig.splash_image);
+                    item.SaveSDKConfig();
+                    //item.SplitAssets(sdkConfig.split_assets);
+                    if (item.update_along == 0 && forceUpdate)
+                    {
+                        if (Directory.Exists(Application.streamingAssetsPath)) Directory.Delete(Application.streamingAssetsPath, true);
+                    }
+                }
+                else if (buildTarget == BuildTarget.StandaloneWindows64 || buildTarget == BuildTarget.StandaloneWindows)
+                {
+                    final_path = string.Concat(dir, fileName, time, flag, Builder.GameVersion.ToString(), ".exe");
+                    if (Directory.Exists(final_path)) Directory.Delete(final_path, true);
+
+                    item.CopyConfig();
+                }
+                AssetDatabase.Refresh();
+
+                BuildUtil.SwapPathDirectory(final_path);
+
+                BuildPipeline.BuildPlayer(GetBuildScenes(), final_path, buildTarget, option);
+                item.ClearSDK();
+
 //                    SVNHelper.UpdateAll();
-//                }
-//            }
-//            else if (ABPackHelper.GetBuildTarget() == BuildTarget.iOS)
-//            {
-//                // 在上传目录新建一个ios_check.txt文件用于判断当前包是否出于提审状态
-//                string checkFile = ABPackHelper.ASSET_PATH + LuaConst.osDir + "/ios_check.txt";
-//                if (File.Exists(checkFile)) File.Delete(checkFile);
-//                File.WriteAllText(checkFile, "1");
-//
-//                XCConfigItem configItem = XCConfigItem.ParseXCConfig(XCodePostProcess.config_path);
-//                if (configItem != null)
-//                {
-//                    PlayerSettings.applicationIdentifier = configItem.bundleIdentifier;
-//                    PlayerSettings.productName = configItem.product_name;
-//                    configItem.CopyConfig();
-//                }
+            }
+            else if (buildTarget == BuildTarget.iOS)
+            {
+                // 在上传目录新建一个ios_check.txt文件用于判断当前包是否出于提审状态
+                string checkFile = BuilderPreference.ASSET_PATH + "/ios_check.txt";
+                if (File.Exists(checkFile)) File.Delete(checkFile);
+                File.WriteAllText(checkFile, "1");
+
+                XCConfigItem configItem = XCConfigItem.ParseXCConfig(XCodePostProcess.config_path);
+                if (configItem != null)
+                {
+                    PlayerSettings.applicationIdentifier = configItem.bundleIdentifier;
+                    PlayerSettings.productName = configItem.product_name;
+                    configItem.CopyConfig();
+                }
 //                IOSGenerateHelper.IOSConfusing();
-//                AssetDatabase.Refresh();
-//                BuildPipeline.BuildPlayer(ABPackHelper.GetBuildScenes(), Apk_Save_Path, ABPackHelper.GetBuildTarget(), option);
-//                AssetDatabase.Refresh();
-//            }
+                AssetDatabase.Refresh();
+                BuildPipeline.BuildPlayer(GetBuildScenes(), Builder.ApkSavePath, buildTarget, option);
+            }
 
             Resources.UnloadUnusedAssets();
             GC.Collect();
 
-            Debug.Log("<color=green>Build success!</color>");
+            
         }
 
+
+        public string[] GetBuildScenes()
+        {
+            HashSet<string> validSceneNames = new HashSet<string>(new [] { "startscene", "updatescene", "preloadingscene",
+                                                                           "createrolescene", "preloginscene", "preloadingchunkscene" });
+            List<string> names = new List<string>();
+            foreach (EditorBuildSettingsScene e in EditorBuildSettings.scenes)
+            {
+                if (e == null || !e.enabled)  continue;
+                
+                string name = Path.GetFileNameWithoutExtension(e.path).ToLower();
+                if (validSceneNames.Contains(name))
+                    names.Add(e.path);
+            }
+
+            return names.ToArray();
+        }
+
+        void ResetConfig()
+        {
+            string resources_path = "Assets/Resources/";
+            if (File.Exists(resources_path + "config1.tmp"))
+            {
+                File.WriteAllText(resources_path + "config.txt", File.ReadAllText(resources_path + "config1.tmp"));
+                File.Delete(resources_path + "config1.tmp");
+                AssetDatabase.Refresh();
+            }
+        }
     }
 }

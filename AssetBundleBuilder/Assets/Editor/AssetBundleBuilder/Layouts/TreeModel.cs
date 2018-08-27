@@ -223,7 +223,7 @@ namespace UnityEditor.CustomTreeView
 			Changed ();
 		}
 
-		void Changed ()
+		protected void Changed ()
 		{
 			if (modelChanged != null)
 				modelChanged ();
