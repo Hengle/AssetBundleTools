@@ -25,6 +25,5 @@ namespace AssetBundleBuilder
         {
             return null;
         }
-
     }
 }

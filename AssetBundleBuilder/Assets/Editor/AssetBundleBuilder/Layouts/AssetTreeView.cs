@@ -59,7 +59,7 @@ namespace AssetBundleBuilder
             customFoldoutYOffset = (kRowHeights - EditorGUIUtility.singleLineHeight) * 0.5f; // center foldout in the row since we also center content. See RowGUI
             extraSpaceBeforeIconAndLabel = kToggleWidth;
             multiColumnHeader.sortingChanged += OnSortingChanged;
-
+            
             Reload();
         }
 
@@ -253,7 +253,7 @@ namespace AssetBundleBuilder
                 case AssetTreeHeader.Build:
                     if (element.FileType == FileType.Folder)
                     {
-                        BuildType newBuildType = (BuildType)EditorGUI.EnumMaskField(cellRect, buildRule.BuildType);
+                        BundleBuildType newBuildType = (BundleBuildType)EditorGUI.EnumMaskField(cellRect, buildRule.BuildType);
                         if (!newBuildType.Equals(buildRule.BuildType))
                         {
                             buildRule.BuildType = newBuildType;

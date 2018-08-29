@@ -62,7 +62,7 @@ namespace AssetBundleBuilder
 
             if (this.FileType != FileType.Folder)
             {
-                if ((parentAssetItem.BuildRule.BuildType & BuildType.TogetherFiles) != 0)
+                if ((parentAssetItem.BuildRule.BuildType & BundleBuildType.TogetherFiles) != 0)
                 {
                     BuildRule.AssetBundleName = parentAssetItem.BuildRule.AssetBundleName;
                     BuildRule.Order = parentAssetItem.BuildRule.Order;
@@ -72,12 +72,12 @@ namespace AssetBundleBuilder
             }
             else if (this.FileType == FileType.Folder)
             {
-                if ((parentAssetItem.BuildRule.BuildType & BuildType.TogetherFolders) != 0)
+                if ((parentAssetItem.BuildRule.BuildType & BundleBuildType.TogetherFolders) != 0)
                 {
                     BuildRule.AssetBundleName = parentAssetItem.BuildRule.AssetBundleName;
                     BuildRule.Order = parentAssetItem.BuildRule.Order;
                     BuildRule.DownloadOrder = parentAssetItem.BuildRule.DownloadOrder;
-                    BuildRule.BuildType = (BuildType)(-1); //everything
+                    BuildRule.BuildType = (BundleBuildType)(-1); //everything
                     return;
                 }                
             }

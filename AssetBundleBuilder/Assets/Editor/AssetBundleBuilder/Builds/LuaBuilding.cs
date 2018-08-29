@@ -244,25 +244,29 @@ namespace AssetBundleBuilder
             List<string> includeFiles = BuildUtil.SearchFiles(resPath, SearchOption.AllDirectories);
             HashSet<string> excludeSuffxs= new HashSet<string>(){".DS_Store" , ".manifest"};  //排除文件
 
-            FileStream fs = new FileStream(newFilePath, FileMode.CreateNew);
-            StreamWriter sw = new StreamWriter(fs);
-            for (int i = 0; i < includeFiles.Count; i++) {
-                string file = includeFiles[i];
-                string ext = Path.GetExtension(file);
+            BuildUtil.SwapPathDirectory(newFilePath);
 
-                if (excludeSuffxs.Contains(ext) || file.EndsWith("apk_version.txt") || file.Contains("tempsizefile.txt") || file.Contains("luamd5.txt")) continue;
+            using (FileStream fs = new FileStream(newFilePath, FileMode.CreateNew))
+            {
+                StreamWriter sw = new StreamWriter(fs);
+                for (int i = 0; i < includeFiles.Count; i++) {
+                    string file = includeFiles[i];
+                    string ext = Path.GetExtension(file);
 
-                string md5 = MD5.ComputeHashString(file);
-                int size = (int)new FileInfo(file).Length;
-                string value = file.Replace(resPath, string.Empty).ToLower();
-                if (assetTypeDict.ContainsKey(value))
-                    sw.WriteLine("{0}|{1}|{2}|{3}" ,value , md5 , size , assetTypeDict[value]);
-                else
-                    sw.WriteLine("{0}|{1}|{2}", value, md5, size);
-    //            UpdateProgress(i, includeFiles.Count, file);
+                    if (excludeSuffxs.Contains(ext) || file.EndsWith("apk_version.txt") || file.Contains("tempsizefile.txt") || file.Contains("luamd5.txt")) continue;
 
+                    string md5 = MD5.ComputeHashString(file);
+                    int size = (int)new FileInfo(file).Length;
+                    string value = file.Replace(resPath, string.Empty).ToLower();
+                    if (assetTypeDict.ContainsKey(value))
+                        sw.WriteLine("{0}|{1}|{2}|{3}" ,value , md5 , size , assetTypeDict[value]);
+                    else
+                        sw.WriteLine("{0}|{1}|{2}", value, md5, size);
+        //            UpdateProgress(i, includeFiles.Count, file);
+
+                }
+                sw.Close();
             }
-            sw.Close(); fs.Close();
     //        EditorUtility.ClearProgressBar();
         }
 

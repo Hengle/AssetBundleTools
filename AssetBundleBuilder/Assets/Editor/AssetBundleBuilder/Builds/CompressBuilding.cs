@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using UnityEditor;
 using UnityEngine;
 using ZstdNet;
 
@@ -19,15 +18,10 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
-            yield return null;
-
             //压缩资源
-            bool copyAssets = true;
-            if (copyAssets)
-            {
-                CopyAssets(BuilderPreference.BUILD_PATH);
-                CopyToTempAssets();
-            }
+            CopyAssets(BuilderPreference.BUILD_PATH);
+            yield return null;
+            CopyToTempAssets();
         }
 
         public void CopyAssets(string fromPath)

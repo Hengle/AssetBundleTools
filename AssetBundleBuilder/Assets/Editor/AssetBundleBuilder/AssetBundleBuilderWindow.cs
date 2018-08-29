@@ -21,10 +21,9 @@ namespace AssetBundleBuilder
 
         //left 
         private float letfGUIWidth = 250;
-
         private int sdkConfigIndex;
-        
-        private int autoBuildIndex;
+        private int autoBuildIndex;  //autobuild
+        private int buildingIndex;   //building
 
         //right
         private SearchField m_SearchField;
@@ -52,7 +51,7 @@ namespace AssetBundleBuilder
 
         Rect multiColumnTreeViewRect
         {
-            get { return new Rect(letfGUIWidth + 10, 70, position.width - letfGUIWidth - 20, position.height - 80); }
+            get { return new Rect(letfGUIWidth + 10, 70, position.width - letfGUIWidth - 20, position.height - 120); }
         }
 
         Rect searchbarRect
@@ -127,6 +126,8 @@ namespace AssetBundleBuilder
 
         private void OnDestroy()
         {
+            builder.OnDestroy();
+            rulManger.OnDestroy();
             
         }
 
@@ -191,7 +192,7 @@ namespace AssetBundleBuilder
                 Debug.Log("编辑打开！！！！");
             }
             GUI.backgroundColor = Color.red;
-            sdkConfigIndex = EditorGUILayout.Popup(sdkConfigIndex, styles.SDKConfigs, GUILayout.MaxWidth(160));
+            sdkConfigIndex = EditorGUILayout.Popup(sdkConfigIndex, builder.NameSDKs, GUILayout.MaxWidth(160));
             GUI.backgroundColor = Color.white;
             GUILayout.EndHorizontal();
 
@@ -218,15 +219,6 @@ namespace AssetBundleBuilder
             this.builder.IsAutoConnectProfile = EditorGUILayout.Toggle(this.builder.IsAutoConnectProfile, GUILayout.MaxWidth(30));
             GUILayout.EndHorizontal();
             EditorGUI.EndDisabledGroup();
-
-            GUILayout.Space(5);
-            
-            GUI.color = Color.yellow;
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Local Debug", GUILayout.MaxWidth(160));
-            this.builder.IsDebug = EditorGUILayout.Toggle(this.builder.IsDebug, GUILayout.MaxWidth(30));
-            GUILayout.EndHorizontal();
-            GUI.color = Color.white;
             
 //            EditorGUILayout.BeginHorizontal();
 //            EditorGUILayout.LabelField("Config Table", GUILayout.MaxWidth(160));
@@ -239,11 +231,21 @@ namespace AssetBundleBuilder
 //            GUILayout.EndHorizontal();
 
             GUILayout.Space(10);
+            GUI.backgroundColor = Color.yellow;
+            if (GUILayout.Button("Debug Build"))
+            {
+                builder.OnClickDebugBuild(true);
+            }
+            GUI.backgroundColor = Color.white;
 
+            GUILayout.Space(10);
+            GUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Buildings", GUILayout.Width(100));
+            buildingIndex = EditorGUILayout.Popup(buildingIndex, styles.BuildContents);
+            GUILayout.EndHorizontal();
             if (GUILayout.Button("Build"))
             {
-                builder.InitBuilding();
-                builder.StartBuild();
+                builder.OnClickBuild(styles.BuildOpts[buildingIndex], styles.BuildPackageOpts[buildingIndex]);
             }
 
             GUILayout.Space(10);
@@ -251,18 +253,16 @@ namespace AssetBundleBuilder
             GUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Auto Build", GUILayout.Width(100));
             autoBuildIndex = EditorGUILayout.Popup(autoBuildIndex, styles.OnekeyBuilds);
-            builder.AutoBuild = styles.AutoBuilds[autoBuildIndex];
+            
             GUILayout.EndHorizontal();
             GUI.backgroundColor = Color.green;
             if (GUILayout.Button("Go"))
             {
                 string rootPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../"));
-                string filePath = EditorUtility.OpenFilePanel("Tip", rootPath, BuilderPreference.AppExtension);
+                string filePath = EditorUtility.SaveFilePanel("Tip", rootPath, PlayerSettings.productName, BuilderPreference.AppExtension.Substring(1));
                 if (!string.IsNullOrEmpty(filePath))
                 {
-                    builder.ApkSavePath = filePath;
-                    builder.InitAutoBuilding();
-                    builder.StartBuild();                    
+                    builder.OnClickAutoBuild(filePath , styles.AutoBuilds[autoBuildIndex]);
                 }
             }
             GUI.backgroundColor = Color.white;
@@ -335,15 +335,7 @@ namespace AssetBundleBuilder
                 treeView.Toggle = !treeView.Toggle;
             }
 
-            if (GUILayout.Button("+", GUI.skin.button, miniButtonWidth))
-            {
-                this.addNewRootFolder();
-            }
-            
-            if (GUILayout.Button("-", GUI.skin.button, miniButtonWidth))
-            {
-                this.treeModel.RemoveSelectElement();
-            }
+
             
             if (GUILayout.Button("Refresh", GUI.skin.button , nomaleButtonWidth))
             {
@@ -359,16 +351,43 @@ namespace AssetBundleBuilder
                 AssetDatabase.Refresh();
             }
 
-            if (GUILayout.Button("Save", GUI.skin.button, nomaleButtonWidth))
-            {
-                treeModel.Save();
-            }
-
             GUILayout.Space(20);
             GUILayout.EndHorizontal();
 
             Rect treeViewRect = multiColumnTreeViewRect;
             this.treeView.OnGUI(treeViewRect);
+
+            GUILayout.Space(treeViewRect.height + 10);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(">>", miniButtonWidth))
+            {
+                treeView.ExpandAll();
+            }
+            
+            if (GUILayout.Button("+", GUI.skin.button, miniButtonWidth))
+            {
+                this.addNewRootFolder();
+            }
+
+            if (GUILayout.Button("-", GUI.skin.button, miniButtonWidth))
+            {
+                this.treeModel.RemoveSelectElement();
+            }
+
+            if (GUILayout.Button("<<", miniButtonWidth))
+            {
+                treeView.CollapseAll();
+            }
+
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Save", GUI.skin.button, nomaleButtonWidth))
+            {
+                treeModel.Save();
+            }
+            GUILayout.Space(20);
+            GUILayout.EndHorizontal();
         }
 
 

@@ -16,7 +16,17 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
-            return base.OnBuilding();
+            SDKConfig curConfigSDk = Builder.CurrentConfigSDK;
+            if (curConfigSDk.upload243 == 1)
+                UploadInner();
+            else if (curConfigSDk.uploadCDN == 1)
+            {
+                foreach (var item in curConfigSDk.uploadPathes)
+                {
+                    UploadCDN(item.path, Builder.GameVersion.ToString(), item.script);
+                }
+            }
+            yield return null;
         }
 
         /// <summary>
@@ -24,10 +34,10 @@ namespace AssetBundleBuilder
         /// </summary>
         public static void UploadInner()
         {
-            string script_path = Application.dataPath.Replace("/Assets", "") + "/rsync_243_res.py";
-            string args = string.Format("{0}", script_path);
-            SVNUtility.Upload(args);
-            AssetDatabase.Refresh();
+            string script_path = Path.Combine(Application.dataPath, "../rsync_243_res.py");
+            script_path = Path.GetFullPath(script_path);
+
+            SVNUtility.Upload(script_path);
         }
 
         /// <summary>
@@ -40,7 +50,9 @@ namespace AssetBundleBuilder
         {
             if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(version))
             {
-                string script_path = Application.dataPath.Replace("/Assets", "") + "/" + upload_script;
+                string script_path = Path.Combine(Application.dataPath, "../" + upload_script);
+                script_path = Path.GetFullPath(script_path);
+
                 string upload_path = string.Format("update/{0}/{1}", path, version);
                 //var lastVersion = GameVersion.CreateVersion(version);
                 //lastVersion.VersionDecrease();
@@ -48,10 +60,11 @@ namespace AssetBundleBuilder
                 string local_path = BuilderPreference.ASSET_PATH;
                 string args = string.Format(" {0} {1} {2} android", script_path, upload_path, local_path);
                 SVNUtility.Upload(args);
-                string upload_fail_path = Application.dataPath.Replace("/Assets", "") + "uploadfaild_list.txt";
+
+                string upload_fail_path = Path.Combine(Application.dataPath, "../uploadfaild_list.txt");
+                upload_fail_path = Path.GetFullPath(upload_fail_path);
                 if (File.Exists(upload_fail_path))
                     EditorUtility.DisplayDialog("Warning", "资源上传CDN发生错误, 请查看项目根目录下uploadfaild_list.txt文件", "OK");
-                AssetDatabase.Refresh();
             }
             else
             {

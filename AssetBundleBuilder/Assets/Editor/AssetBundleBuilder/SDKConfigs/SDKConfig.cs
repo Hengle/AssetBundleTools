@@ -147,7 +147,6 @@ public class SDKConfigItem
             if (!fileName.Equals(game_name))
                 AssetDatabase.DeleteAsset(file.Replace("\\", "/"));
         }
-        AssetDatabase.Refresh();
     }
 
     public void CopySDK()

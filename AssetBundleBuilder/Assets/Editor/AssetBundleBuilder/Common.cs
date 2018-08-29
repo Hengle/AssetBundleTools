@@ -46,12 +46,32 @@ namespace AssetBundleBuilder
     }
 
     [System.Flags]
-    public enum BuildType
+    public enum BundleBuildType
     {
         TogetherFiles = 1 << 0,    // 目录下所有文件一起打包
         TogetherFolders = 1 << 1,    // 目录下所有目录一起打包
     }
 
+
+    public enum Buildings
+    {
+        SvnUpdate = 1, 
+        Assetbundle = 1 << 1,
+        AssetConfig = 1 << 2,
+        Lua = 1 << 3,
+        Compress = 1 << 4,
+        SvnCommit = 1 << 5,
+        Package = 1 << 6,
+        UploadCDN = 1 << 7,
+    }
+
+    public enum PackageBuildings
+    {
+        SubPackage = 1 << 0,
+        FullPackage = 1 << 1,
+        ForceUpdate = 1 << 2,
+        BuildApp = 1 << 3,
+    }
     /// <summary>
     /// 资源类型
     /// </summary>
@@ -61,16 +81,6 @@ namespace AssetBundleBuilder
         OutPackage,         // 整包资源(不包含在包体中)
         PacthResources,     // 补丁资源（额外添加资源）
         NoNeedToDownload,   // 不需要下载的资源()
-    }
-
-    /// <summary>
-    /// 一键打包
-    /// </summary>
-    public enum AutoBuildType
-    {
-        ALLBuild ,      //一键打包
-        AllAssetBuild ,  //一键打包更新资源
-        AllPackageBuild  //一键打包强更包
     }
 
 }

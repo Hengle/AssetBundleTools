@@ -121,7 +121,7 @@ namespace AssetBundleBuilder
             //根据明确的子目录设置AB名,即定义了指定的打包规则的目录
             foreach (AssetMap asset in assetMaps.Values)
             {
-                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}" , asset.AssetPath , asset.Rule.AssetBundleName) );
+//                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}" , asset.AssetPath , asset.Rule.AssetBundleName) );
                 BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule.AssetBundleName);
             }
 

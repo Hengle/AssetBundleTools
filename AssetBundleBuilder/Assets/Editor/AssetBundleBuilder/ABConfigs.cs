@@ -20,7 +20,7 @@ namespace AssetBundleBuilder
         /// <summary>
         /// 打包方式
         /// </summary>
-        public BuildType BuildType = 0;
+        public BundleBuildType BuildType = 0;
 
         /// <summary>
         /// 加载类型
@@ -36,6 +36,7 @@ namespace AssetBundleBuilder
         /// </summary>
         public int DownloadOrder;
 
+        [NonSerialized]
         public AssetBuildRule[] Childrens;
         
 
@@ -43,6 +44,8 @@ namespace AssetBundleBuilder
         {
             List<AssetBuildRule> list = new List<AssetBuildRule>();
             if(Childrens != null)   list.AddRange(Childrens);
+
+            if (list.Contains(childRule)) return;
 
             list.Add(childRule);
 

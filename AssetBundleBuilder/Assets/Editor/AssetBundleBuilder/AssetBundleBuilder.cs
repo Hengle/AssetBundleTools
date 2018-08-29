@@ -16,8 +16,9 @@ namespace AssetBundleBuilder
         private ABuilding curBuilding;
 
         //当前选择的SDK
-        public SDKConfig SDKConfig;
         public int ActiveSdkIndex;
+        private List<SDKConfig> sdkConfigs = new List<SDKConfig>();
+        public string[] NameSDKs;
 
         public bool IsDebug; //本地调试
         public bool IsBuildDev;
@@ -25,9 +26,6 @@ namespace AssetBundleBuilder
         public bool IsAutoConnectProfile;
 
         public string ApkSavePath;  //apk/ipa安装包
-        // build 
-        public AutoBuildType AutoBuild;
-
         
         public Dictionary<string, AssetMap> AssetMaps;
 
@@ -50,6 +48,12 @@ namespace AssetBundleBuilder
             get { return apkVersion; }
         }
 
+
+        public SDKConfig CurrentConfigSDK
+        {
+            get { return sdkConfigs[ActiveSdkIndex]; }
+        }
+
         private int totalWeight;
         private float finishWeight;
         
@@ -61,41 +65,40 @@ namespace AssetBundleBuilder
         {
             readGameVersion();
 
-            // 读取游戏版本号
-            string destVersionPath = BuilderPreference.VERSION_PATH + "/apk_version.txt";
-            if (File.Exists(destVersionPath))
-            {
-                var ver = File.ReadAllText(destVersionPath);
-                apkVersion = Convert.ToInt32(ver);
-            }
-            else
-                apkVersion = 0;
+            loadSDKConfig();
         }
 
         /// <summary>
         /// 初始化打包流程
         /// </summary>
-        public void InitAutoBuilding()
+        public void InitAutoBuilding(int packageBuildings)
         {
             this.clear();
 
             this.AddBuilding(new SvnUpdateBuilding());
             this.AddBuilding(new AssetBundleBinding());
+            this.AddBuilding(new AssetConfigBuilding());
             this.AddBuilding(new LuaBuilding());
             this.AddBuilding(new CompressBuilding());
-            this.AddBuilding(new PackageBuilding());
             this.AddBuilding(new SvnCommitBuilding());
+            this.AddBuilding(new PackageBuilding(packageBuildings));
             this.AddBuilding(new CDNBuilding());
         }
 
-        public void InitBuilding()
+        public void InitBuilding(bool isDebug)
         {
             this.clear();
 
-//            this.AddBuilding(new AssetBundleBinding());
-//            this.AddBuilding(new LuaBuilding());
-//            this.AddBuilding(new CompressBuilding());
-            this.AddBuilding(new PackageBuilding());
+            this.IsDebug = true;
+            this.AddBuilding(new AssetBundleBinding());
+            this.AddBuilding(new AssetConfigBuilding());
+            this.AddBuilding(new LuaBuilding());
+
+            if (!isDebug)
+            {
+                this.AddBuilding(new CompressBuilding());
+                this.AddBuilding(new PackageBuilding((int)PackageBuildings.SubPackage));
+            }
         }
 
         /// <summary>
@@ -120,6 +123,16 @@ namespace AssetBundleBuilder
             }
             else
                 gameVersion = GameVersion.CreateVersion(Application.version);
+
+            // 读取游戏版本号
+            apkVersion = 0;
+            destVersionPath = BuilderPreference.VERSION_PATH + "/apk_version.txt";
+            if (File.Exists(destVersionPath))
+            {
+                var ver = File.ReadAllText(destVersionPath);
+                apkVersion = Convert.ToInt32(ver);
+            }
+                
         }
 
         /// <summary>
@@ -143,57 +156,53 @@ namespace AssetBundleBuilder
         /// <summary>
         /// 点击打包本地测试
         /// </summary>
-        public void OnClickBuildLocalDebug()
+        public void OnClickDebugBuild(bool isDebug)
         {
-            this.IsDebug = true;
-
+            this.InitBuilding(isDebug);
+            this.StartBuild();
         }
 
         /// <summary>
         /// 点击打包分包
         /// </summary>
-        public void OnClickBuildSubPackage()
+        public void OnClickBuild(int buildings , int packageBuildings)
         {
-            
+            System.Func<Buildings, bool> isBuilding = delegate(Buildings eBuilding)
+            {
+                return (buildings & (int)eBuilding) != 0;
+            };
+
+            clear();
+
+            if (isBuilding(Buildings.Assetbundle))
+            {
+                this.AddBuilding(new AssetBundleBinding());
+            }
+
+            if(isBuilding(Buildings.Assetbundle) || isBuilding(Buildings.Lua))
+            this.AddBuilding(new AssetConfigBuilding());
+
+            if (isBuilding(Buildings.Lua))
+                this.AddBuilding(new LuaBuilding());
+
+            if(isBuilding(Buildings.Compress))
+                this.AddBuilding(new CompressBuilding());
+
+            if(isBuilding(Buildings.Package))
+                this.AddBuilding(new PackageBuilding(packageBuildings));
+
+            this.StartBuild();
         }
 
-        /// <summary>
-        /// 点击打包Xls配置表
-        /// </summary>
-        public void OnClickBuildXls()
-        {
-            
-        }
-
-        /// <summary>
-        /// 点击打包Lua脚本
-        /// </summary>
-        public void OnClickBuildLua()
-        {
-            
-        }
-
-        /// <summary>
-        /// 点击生成分包资源
-        /// </summary>
-        public void OnClickBuildSubPackageAssets()
-        {
-            
-        }
-
-        /// <summary>
-        /// 点击生成整包资源
-        /// </summary>
-        public void OnClickBuildAllPackageAssets()
-        {
-            
-        }
+        
         
         /// <summary>
         /// 点击一键生成
         /// </summary>
-        public void OnClickAutoBuild()
+        public void OnClickAutoBuild(string packagePath , int packageBuildings)
         {
+            InitAutoBuilding(packageBuildings);
+            ApkSavePath = packagePath;
             this.StartBuild();
         }
 
@@ -225,6 +234,7 @@ namespace AssetBundleBuilder
         {
             clear();
             EditorApplication.update -= onUpdateBuilding;
+            Debug.LogWarning("!!! Canle Build !!!");
         }
 
 
@@ -260,13 +270,61 @@ namespace AssetBundleBuilder
             }
         }
 
+        #region Build SDK Config
+
+        /// <summary>
+        /// 加载SDK配置
+        /// </summary>
+        private void loadSDKConfig()
+        {
+            sdkConfigs.Clear();
+            string root = BuilderPreference.SDK_CONFIG_PATH;
+            string[] files = Directory.GetFiles(root, "*.json", SearchOption.TopDirectoryOnly);
+
+            NameSDKs = new string[files.Length];
+            for (int i = 0; i < files.Length; ++i)
+            {
+                var config = SDKConfig.LoadSDKConfig(File.ReadAllText(files[i]));
+                sdkConfigs.Add(config);
+                NameSDKs[i] = config.show_name;
+            }
+        }
+
+        private void SaveConfig()
+        {
+//            XmlDocument doc = new XmlDocument();
+//            if (File.Exists(DEFAULT_CONFIG_NAME)) File.Delete(DEFAULT_CONFIG_NAME);
+//            XmlDeclaration dec = doc.CreateXmlDeclaration("1.0", "UTF-8", "yes");
+//            doc.AppendChild(dec);
+//            var attr = doc.CreateElement("ABConfig");
+//            doc.AppendChild(attr);
+//            attr.SetAttribute("lastConfigIndex", lastSelectConfigIndex.ToString());
+//            foreach (var val in ABData.datas.Values)
+//            {
+//                val.SerializeToXml(attr);
+//            }
+
+//            doc.Save(DEFAULT_CONFIG_NAME);
+//            AssetDatabase.Refresh();
+//            Debug.Log("<color=#2fd95b>Save Success !</color>");
+        }
+
+        #endregion
 
         private void clear()
         {
+            IsDebug = false;
             this.enumerators.Clear();
             totalWeight = 0;
             finishWeight = 0;
             ApkSavePath = String.Empty;
+
+        }
+
+
+        public void OnDestroy()
+        {
+            
         }
     }
 }

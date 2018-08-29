@@ -210,11 +210,13 @@ namespace AssetBundleBuilder
             AssetElement newEle = new AssetElement(file);
             newEle.id = index;
             newEle.parent = parent;
+            
 
             if (parent.BuildRule != null)
             {
                 if(!string.IsNullOrEmpty(parent.BuildRule.AssetBundleName))
                     newEle.BuildRule.AssetBundleName = string.Concat(parent.BuildRule.AssetBundleName, "/", newEle.BuildRule.AssetBundleName);
+                newEle.BuildRule.FileFilterType = parent.BuildRule.FileFilterType;
 
                 parent.BuildRule.AddChild(newEle.BuildRule);
             }

@@ -8,6 +8,8 @@ namespace AssetBundleBuilder
     public class BuilderPreference
     {
         public const string DEFAULT_CONFIG_NAME = "Assets/ABConfig.asset";
+        public const string SDK_CONFIG_PATH = "Assets/Res/Template/SDKConfig/";
+
         public const string VARIANT_V1 = "ab";
         public const string VARIANT_UNTIY3D = "unity3d";
 
@@ -50,7 +52,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(tempAssetPath))
                 {
-                    tempAssetPath = Path.Combine(Application.dataPath, "../../tempAssets/" + PlatformTargetFolder);
+                    tempAssetPath = Path.Combine(Application.dataPath, "../../tempAssets2/" + PlatformTargetFolder);
                     tempAssetPath = Path.GetFullPath(tempAssetPath).Replace("\\", "/");
                 }
                 return tempAssetPath;
@@ -64,7 +66,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(assetsPath))
                 {
-                    assetsPath = Path.Combine(Application.dataPath, "../../assets/" + PlatformTargetFolder);
+                    assetsPath = Path.Combine(Application.dataPath, "../../assets2/" + PlatformTargetFolder);
                     assetsPath = Path.GetFullPath(assetsPath).Replace("\\", "/");
                 }
                 return assetsPath;

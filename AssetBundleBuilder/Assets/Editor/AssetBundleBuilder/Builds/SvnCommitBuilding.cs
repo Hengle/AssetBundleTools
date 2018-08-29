@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections;
-using System.Diagnostics;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,31 +16,29 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
-            return base.OnBuilding();
+            CommitPackAssets();
+
+            yield return null;
+
+            SVNUtility.Commit(Application.dataPath, "资源整理");
         }
 
 
 
-        public static void CommitPackAssets()
+        public void CommitPackAssets()
         {
             try
             {
-                string path = BuilderPreference.ASSET_PATH;
-                SVNUtility.Commit(path , "提交打包资源");
-                
-                path = BuilderPreference.TEMP_ASSET_PATH;
-                SVNUtility.Commit(path , "提交临时打包资源");
-
-                SVNUtility.Commit(Application.dataPath , "资源整理");
-                SVNUtility.Commit(BuilderPreference.VERSION_PATH , "版本号更新");
+                string[] localPaths = new string[]
+                {
+                  BuilderPreference.ASSET_PATH,
+                  BuilderPreference.TEMP_ASSET_PATH
+                } ;
+                SVNUtility.Commit(localPaths, "提交打包资源");
             }
             catch (Exception e)
             {
                 EditorUtility.DisplayDialog("错误", "资源上传svn错误: " + e.Message, "OK");
-            }
-            finally
-            {
-                AssetDatabase.Refresh();
             }
         }
 
