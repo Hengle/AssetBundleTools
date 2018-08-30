@@ -236,7 +236,7 @@ namespace AssetBundleBuilder
         public void ReflushChildrenRecursive(AssetElement item)
         {
             if (item.children == null) return;
-
+            
             for (int i = 0; i < item.children.Count; i++)
             {
                 AssetElement childItem = item.children[i] as AssetElement;

@@ -11,7 +11,7 @@ namespace AssetBundleBuilder
 {
     public class AssetTreeView : TreeViewWithTreeModel<AssetElement>
     {
-        const float kRowHeights = 30f;
+        const float kRowHeights = 28f;
         const float kToggleWidth = 20f;
 
         static Texture2D[] icons =
@@ -35,7 +35,7 @@ namespace AssetBundleBuilder
             EditorGUIUtility.FindTexture ("GameObject Icon")
         };
 
-
+        private Texture2D iconIgnore = EditorGUIUtility.FindTexture("TreeEditor.Trash");
         private GUIStyle miniButton;
 
         public bool Toggle;
@@ -137,15 +137,29 @@ namespace AssetBundleBuilder
             miniButton.fixedHeight = 20;
 
             AssetElement parentItem = item.data.parent as AssetElement;
-            bool isDisable = (parentItem.BuildRule.BuildType & item.data.BuildRule.BuildType) != 0; //nothing=0
-            EditorGUI.BeginDisabledGroup(item.data.FileType != FileType.Folder || isDisable);
+            bool isTogetherDisable = false;
+            if(item.data.FileType == FileType.Folder)
+                isTogetherDisable = (parentItem.BuildRule.BuildType & (int)BundleBuildType.TogetherFolders) != 0;
+            else
+                isTogetherDisable = (parentItem.BuildRule.BuildType & (int)BundleBuildType.TogetherFiles) != 0;
+
+            bool isIgnore = item.data.BuildRule.BuildType == 0 && parentItem.BuildRule.BuildType == 0;
+
+            bool isDisable = isTogetherDisable || isIgnore;
+
+            EditorGUI.BeginDisabledGroup(isDisable);
+
             for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
             {
                 CellGUI(args.GetCellRect(i), item, (AssetTreeHeader)args.GetColumn(i), ref args);
             }
+
             EditorGUI.EndDisabledGroup();
         }
 
+
+
+        
         void CellGUI(Rect cellRect, TreeViewItem<AssetElement> item, AssetTreeHeader column, ref RowGUIArgs args)
         {
             // Center cell rect vertically (makes it easier to place controls, icons etc in the cells)
@@ -159,7 +173,9 @@ namespace AssetBundleBuilder
                 case AssetTreeHeader.Icon:
                     {
 //                        EditorGUI.BeginDisabledGroup(!item.data.IsBuild);
-
+                    if(buildRule.BuildType == 0)
+                        GUI.DrawTexture(cellRect, iconIgnore, ScaleMode.ScaleToFit);
+                    else
                         GUI.DrawTexture(cellRect, icons[GetIconByIndex(item)], ScaleMode.ScaleToFit);
 //                        EditorGUI.EndDisabledGroup();
 
@@ -225,7 +241,7 @@ namespace AssetBundleBuilder
                     break;
                 case AssetTreeHeader.NameAB:
 //                    EditorGUI.BeginChangeCheck();
-                    buildRule.AssetBundleName = EditorGUI.TextField(cellRect, buildRule.AssetBundleName);
+                    EditorGUI.TextField(cellRect, buildRule.AssetBundleName); //buildRule.AssetBundleName = 
                     break;
                 case AssetTreeHeader.Order:
                     int newOrder = EditorGUI.IntField(cellRect, buildRule.Order);
@@ -251,17 +267,15 @@ namespace AssetBundleBuilder
                     }
                     break;
                 case AssetTreeHeader.Build:
-                    if (element.FileType == FileType.Folder)
+                    int buildIndex = Array.FindIndex(Styles.BundleBuildEnums, ev => ev == buildRule.BuildType);
+                    int newBuildIndex = EditorGUI.Popup(cellRect, buildIndex, Styles.BundleBuildOptions);
+                    if (newBuildIndex != buildIndex)
                     {
-                        BundleBuildType newBuildType = (BundleBuildType)EditorGUI.EnumMaskField(cellRect, buildRule.BuildType);
-                        if (!newBuildType.Equals(buildRule.BuildType))
-                        {
-                            buildRule.BuildType = newBuildType;
-                            this.assetTreeModel.ReflushChildrenRecursive(element);                            
-                        }
+                        buildRule.BuildType = Styles.BundleBuildEnums[newBuildIndex];
+                        this.assetTreeModel.ReflushChildrenRecursive(element);                            
                     }
                     break;
-//                case AssetTreeHeader.PackAsset:
+//                case AssetTreeHeader.Ignore:
 //                    buildRule.BuildType = (PackageAssetType)EditorGUI.EnumPopup(cellRect, buildRule.BuildType);
 //                    break;
             }
@@ -338,8 +352,8 @@ namespace AssetBundleBuilder
                     headerTextAlignment = TextAlignment.Center,
                     sortedAscending = true,
                     sortingArrowAlignment = TextAlignment.Left,
-                    width = 100,
-                    minWidth = 80,
+                    width = 80,
+                    minWidth = 60,
 
                     autoResize = false
                 },
@@ -366,7 +380,7 @@ namespace AssetBundleBuilder
 //                ,
                 new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("Together Build", "打包方式,整体/分开"),
+                    headerContent = new GUIContent("S/T Build", "打包方式,整体/分开"),
                     headerTextAlignment = TextAlignment.Center,
                     sortedAscending = true,
                     sortingArrowAlignment = TextAlignment.Left,
@@ -376,12 +390,12 @@ namespace AssetBundleBuilder
                 },
 //                new MultiColumnHeaderState.Column
 //                {
-//                    headerContent = new GUIContent("引用次数", "引用的资源列表"),
-//                    headerTextAlignment = TextAlignment.Left,
+//                    headerContent = new GUIContent("Ignore", "忽略"),
+//                    headerTextAlignment = TextAlignment.Center,
 //                    sortedAscending = true,
 //                    sortingArrowAlignment = TextAlignment.Left,
-//                    width = 80,
-//                    minWidth = 80,
+//                    width = 50,
+//                    minWidth = 30,
 //                    autoResize =false,
 //                },
 //                 new MultiColumnHeaderState.Column

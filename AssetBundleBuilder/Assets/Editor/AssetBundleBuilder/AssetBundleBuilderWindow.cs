@@ -27,7 +27,7 @@ namespace AssetBundleBuilder
 
         //right
         private SearchField m_SearchField;
-
+        private Texture2D iconReflush;
         private AssetTreeView treeView;
         //[SerializeField]
         private TreeViewState treeViewState; // Serialized in the window layout file so it survives assembly reloading
@@ -66,6 +66,8 @@ namespace AssetBundleBuilder
             styles = new Styles();
             rulManger = AssetBuildRuleManager.Instance;
             builder = new AssetBundleBuilder();
+
+            iconReflush = EditorGUIUtility.FindTexture("TreeEditor.Refresh");
 
             this.initTreeView(); 
         }
@@ -245,7 +247,7 @@ namespace AssetBundleBuilder
             GUILayout.EndHorizontal();
             if (GUILayout.Button("Build"))
             {
-                builder.OnClickBuild(styles.BuildOpts[buildingIndex], styles.BuildPackageOpts[buildingIndex]);
+                builder.OnClickBuild(styles.BuildingOpts[buildingIndex], styles.BuildPackageOpts[buildingIndex]);
             }
 
             GUILayout.Space(10);
@@ -334,10 +336,8 @@ namespace AssetBundleBuilder
             {
                 treeView.Toggle = !treeView.Toggle;
             }
-
-
             
-            if (GUILayout.Button("Refresh", GUI.skin.button , nomaleButtonWidth))
+            if (GUILayout.Button(iconReflush, miniButtonWidth))
             {
                 treeModel.AddChildrens(treeView.GetSelection());
             }                

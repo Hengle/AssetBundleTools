@@ -60,24 +60,31 @@ namespace AssetBundleBuilder
         {
             AssetElement parentAssetItem = parent as AssetElement;
 
+            if (parentAssetItem.BuildRule.BuildType == 0) //ignore
+            {
+                BuildRule.BuildType = 0;
+                return;
+            }
+
             if (this.FileType != FileType.Folder)
             {
-                if ((parentAssetItem.BuildRule.BuildType & BundleBuildType.TogetherFiles) != 0)
+                if ((parentAssetItem.BuildRule.BuildType & (int)BundleBuildType.TogetherFiles) != 0)
                 {
                     BuildRule.AssetBundleName = parentAssetItem.BuildRule.AssetBundleName;
                     BuildRule.Order = parentAssetItem.BuildRule.Order;
                     BuildRule.DownloadOrder = parentAssetItem.BuildRule.DownloadOrder;
+                    BuildRule.BuildType = (int)BundleBuildType.TogetherFiles;
                     return;
                 }
             }
             else if (this.FileType == FileType.Folder)
             {
-                if ((parentAssetItem.BuildRule.BuildType & BundleBuildType.TogetherFolders) != 0)
+                if ((parentAssetItem.BuildRule.BuildType & (int)BundleBuildType.TogetherFolders) != 0)
                 {
                     BuildRule.AssetBundleName = parentAssetItem.BuildRule.AssetBundleName;
                     BuildRule.Order = parentAssetItem.BuildRule.Order;
                     BuildRule.DownloadOrder = parentAssetItem.BuildRule.DownloadOrder;
-                    BuildRule.BuildType = (BundleBuildType)(-1); //everything
+                    BuildRule.BuildType = (int)(BundleBuildType.TogetherFolders | BundleBuildType.TogetherFiles); 
                     return;
                 }                
             }
@@ -87,8 +94,9 @@ namespace AssetBundleBuilder
                 BuildRule.AssetBundleName = string.Concat(parentBundleName, "/", fileName);
             
             //打包顺序
-            int offsetOrder = this.BuildRule.Order - BuildUtil.GetFileOrder(this.FileType);
+            int offsetOrder = this.BuildRule.Order % 1000;
             BuildRule.Order = parentAssetItem.BuildRule.Order + offsetOrder;
+            BuildRule.BuildType = (int)BundleBuildType.Separate;
 
             //下载顺序 todo
         }

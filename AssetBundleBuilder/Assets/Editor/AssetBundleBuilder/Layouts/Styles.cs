@@ -20,7 +20,7 @@ namespace AssetBundleBuilder
         };
 
 
-        public int[] BuildOpts = new[]
+        public int[] BuildingOpts = new[]
         {
             (int)Buildings.Lua,
             (int)Buildings.Package,
@@ -52,11 +52,22 @@ namespace AssetBundleBuilder
         };
 
 
-        public GUIContent[] BuildOptions = new GUIContent[]
+        public static GUIContent[] BundleBuildOptions = new GUIContent[]
         {
             new GUIContent("Seperate"), 
-            new GUIContent("TogetherFolders"),
-            new GUIContent("TogetherFiles"),  
+            new GUIContent("Together Folders"),
+            new GUIContent("Together Files"),  
+            new GUIContent("Together All"), 
+            new GUIContent("Ignore"), 
+        };
+
+        public static int[] BundleBuildEnums = new[]
+        {
+            (int)BundleBuildType.Separate, 
+            (int)BundleBuildType.TogetherFolders, 
+            (int)BundleBuildType.TogetherFiles, 
+            (int)(BundleBuildType.TogetherFolders | BundleBuildType.TogetherFiles), 
+            (int)BundleBuildType.Ignore,
         };
     }
 }

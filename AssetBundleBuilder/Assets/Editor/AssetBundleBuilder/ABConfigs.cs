@@ -20,7 +20,7 @@ namespace AssetBundleBuilder
         /// <summary>
         /// 打包方式
         /// </summary>
-        public BundleBuildType BuildType = 0;
+        public int BuildType = 1;
 
         /// <summary>
         /// 加载类型

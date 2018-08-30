@@ -66,7 +66,7 @@ namespace AssetBundleBuilder
 
         private bool findParentRecursive(AssetBuildRule buildRule, AssetBuildRule parent)
         {
-            if (buildRule.Equals(parent) || !buildRule.Path.StartsWith(parent.Path) ) return false;
+            if (buildRule.Equals(parent) || !buildRule.Path.StartsWith(parent.Path + "/") ) return false;
 
             bool result = false;
             if (parent.Childrens != null)
@@ -93,6 +93,8 @@ namespace AssetBundleBuilder
 
             if (File.Exists(defaultConfigPath)) File.Delete(defaultConfigPath);
 
+            this.rootRules = rules;
+
             List<AssetBuildRule> ruleList = new List<AssetBuildRule>();
 
             for (int i = 0; i < rules.Length; i++)
@@ -104,6 +106,7 @@ namespace AssetBundleBuilder
             
             ABConfigs configs = ScriptableObject.CreateInstance<ABConfigs>();
             configs.Rules = ruleList.ToArray();
+            
 
             AssetDatabase.CreateAsset(configs , defaultConfigPath);
 

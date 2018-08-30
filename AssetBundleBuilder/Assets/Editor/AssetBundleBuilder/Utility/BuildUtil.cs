@@ -298,27 +298,57 @@ namespace AssetBundleBuilder
                 .Where(f => extensionSet.Contains(Path.GetExtension(f).ToLower()) ).ToArray();
             return allFiles;
         }
-
-        public static string[] SearchFiles(AssetBuildRule rule)
+        /// <summary>
+        /// 搜索根目录下的所有的指定打包规则的文件
+        /// </summary>
+        /// <param name="root"></param>
+        /// <param name="ruleMap"></param>
+        /// <returns></returns>
+        public static List<string> SearchFiles(AssetBuildRule root , Dictionary<string, AssetBuildRule> ruleMap)
         {
-            List<AssetBuildRule> rules = rule.TreeToList();
-            HashSet<string> extensionSet = new HashSet<string>();
-            for (int i = 0; i < rules.Count; i++)
-            {
-                string[] extends = GetFileExtension(rules[i].FileFilterType);
-                for (int j = 0; j < extends.Length; j++)
-                {
-                    if(extensionSet.Contains(extends[j]))   continue;
-                    extensionSet.Add(extends[j]);
-                }
-            }
-            string[] allFiles = Directory.GetFiles(rule.Path, "*.*", SearchOption.AllDirectories)
-                .Where(f => extensionSet.Contains(Path.GetExtension(f).ToLower())).ToArray();
+            string[] extends = GetFileExtension(root.FileFilterType);
+            HashSet<string> includeSuffix = new HashSet<string>(extends);
+            return searchFilesRecuivse(root.Path, ruleMap, includeSuffix);
+        }
+
+        private static List<string> searchFilesRecuivse(string folderPath, Dictionary<string, AssetBuildRule> rules , HashSet<string> includeSuffixs)
+        {
+            DirectoryInfo dirInfo = new DirectoryInfo(folderPath);
+            if (!dirInfo.Exists) return null;
+
+            List<string> files = new List<string>();
+
+            string[] allFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
+            .Where(f => includeSuffixs.Contains(Path.GetExtension(f).ToLower())).ToArray();
 
             for (int i = 0; i < allFiles.Length; i++)
                 allFiles[i] = BuildUtil.RelativePaths(allFiles[i]);
 
-            return allFiles;
+            files.AddRange(allFiles);
+
+            DirectoryInfo[] childDirs = dirInfo.GetDirectories();
+
+            foreach (DirectoryInfo childDir in childDirs)
+            {
+                AssetBuildRule buildRule = null;
+                string relativePath = BuildUtil.RelativePaths(childDir.FullName);
+                List<string> childFiles = null;
+                if (rules.TryGetValue(relativePath, out buildRule))
+                {
+                    string[] extends = GetFileExtension(buildRule.FileFilterType);
+                    HashSet<string> newIncludeSuffix = new HashSet<string>(extends);
+                    childFiles = searchFilesRecuivse(relativePath , rules, newIncludeSuffix);
+                }
+                else
+                {
+                    childFiles = searchFilesRecuivse(relativePath , rules, includeSuffixs);
+                }
+
+                if(childFiles != null)
+                    files.AddRange(childFiles);
+            }
+
+            return files;
         }
 
         /// <summary>

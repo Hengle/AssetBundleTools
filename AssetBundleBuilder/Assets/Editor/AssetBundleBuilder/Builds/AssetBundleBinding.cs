@@ -57,15 +57,7 @@ namespace AssetBundleBuilder
 
             // 设置ab名
             AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
-
-            List<string> files = new List<string>();
-            //获取根目录下的所有文件
-            for (int i = 0; i < rules.Length; i++)
-            {
-                string[] newFiles = BuildUtil.SearchFiles(rules[i]);
-                files.AddRange(newFiles);
-            }
-
+            
             Builder.AddBuildLog("Set AssetBundleName...");
 
             Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
@@ -74,9 +66,27 @@ namespace AssetBundleBuilder
                 List<AssetBuildRule> ruleList = rules[i].TreeToList();
                 for (int j = 0; j < ruleList.Count; j++)
                 {
-                    ruleMap[ruleList[j].AssetBundleName] = ruleList[j];
+                    AssetBuildRule rule = ruleList[j];
+
+                    AssetBuildRule oldRule = null;
+                    if (ruleMap.TryGetValue(rule.AssetBundleName, out oldRule))
+                    {
+                        if (rule.Path.Length > oldRule.Path.Length)
+                            rule = oldRule;
+                    }
+                    ruleMap[ruleList[j].AssetBundleName] = rule;
                 }
             }
+
+            //获取根目录下的所有文件
+            List<string> files = new List<string>();
+            for (int i = 0; i < rules.Length; i++)
+            {
+                List<string> rootFiles = BuildUtil.SearchFiles(rules[i] , ruleMap);
+                if(rootFiles != null)
+                    files.AddRange(rootFiles);
+            }
+            
 
             AssetBuildRule[] buildRules = new AssetBuildRule[ruleMap.Count];
             ruleMap.Values.CopyTo(buildRules, 0);
@@ -91,9 +101,14 @@ namespace AssetBundleBuilder
                 if (!assetMaps.TryGetValue(files[i], out fileAssetMap))
                 {
                     AssetBuildRule rule = findRuleByPath(files[i], buildRules);
+                    if(rule == null)
+                        Debug.LogError("Cant find bundle rule!" + files[i]);
                     fileAssetMap = new AssetMap(files[i] , rule);
                     assetMaps[files[i]] = fileAssetMap;
                 }
+
+                //被忽略的规则不查找依赖
+                if(fileAssetMap.Rule.BuildType == (int)BundleBuildType.Ignore)  continue;
 
                 string[] dependency = AssetDatabase.GetDependencies(files[i]);
 
@@ -122,6 +137,8 @@ namespace AssetBundleBuilder
             foreach (AssetMap asset in assetMaps.Values)
             {
 //                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}" , asset.AssetPath , asset.Rule.AssetBundleName) );
+                if(asset.Rule.BuildType == (int)BundleBuildType.Ignore) continue;
+
                 BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule.AssetBundleName);
             }
 
@@ -206,6 +223,9 @@ namespace AssetBundleBuilder
                     AssetMap depAsset = dependencys[j];
                     //查询引用文件中最小的Order,使用最小Order的Assetbundle名称
                     AssetBuildRule depAssetRule = findRuleByOrder(depAsset.References);  
+
+                    if(depAssetRule.BuildType == (int)BundleBuildType.Ignore)   continue;
+
                     BuildUtil.SetAssetbundleName(importer , depAssetRule.AssetBundleName);
                 }
             }

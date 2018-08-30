@@ -9,7 +9,7 @@ namespace AssetBundleBuilder
 
     public enum AssetTreeHeader
     {
-        Icon , AssetName , NameAB, Order , File , Build //, PackAsset
+        Icon , AssetName , NameAB, Order , File , Build //, Ignore
     }
 
     [Description("资源文件类型")]
@@ -48,8 +48,10 @@ namespace AssetBundleBuilder
     [System.Flags]
     public enum BundleBuildType
     {
-        TogetherFiles = 1 << 0,    // 目录下所有文件一起打包
-        TogetherFolders = 1 << 1,    // 目录下所有目录一起打包
+        Ignore = 0 , //忽略
+        Separate = 1 << 0,  //分离，单独
+        TogetherFiles = 1 << 1,    // 目录下所有文件一起打包
+        TogetherFolders = 1 << 2,    // 目录下所有目录一起打包
     }
 
 
