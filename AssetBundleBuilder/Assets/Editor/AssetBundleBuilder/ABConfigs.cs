@@ -75,10 +75,25 @@ namespace AssetBundleBuilder
         {
             buildRules.Add(rule);
 
-            if (rule.Childrens == null || rule.BuildType < 0) return;
+            if (rule.Childrens == null) return;
 
             foreach (AssetBuildRule childRule in rule.Childrens)
                 TreeToList(childRule, buildRules);
+        }
+
+        public AssetBuildRule Copy()
+        {
+            AssetBuildRule copyRule = new AssetBuildRule();
+            copyRule.Path = Path;
+            copyRule.AssetBundleName = AssetBundleName;
+            copyRule.Order = Order;
+            copyRule.FileFilterType = FileFilterType;
+            copyRule.BuildType = BuildType;
+            copyRule.LoadType = LoadType;
+            copyRule.PackageType = PackageType;
+            copyRule.DownloadOrder = DownloadOrder;
+
+            return copyRule;
         }
     }
 

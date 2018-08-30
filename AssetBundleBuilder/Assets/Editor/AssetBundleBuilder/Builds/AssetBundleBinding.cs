@@ -14,7 +14,7 @@ namespace AssetBundleBuilder
     /// </summary>
     public class AssetBundleBinding : ABuilding
     {
-        private static string[] includeExtensions = new []{
+        private static string[] includeExtensions = new[]{
             ".prefab", ".unity", ".mat", ".asset",
             ".ogg", ".wav", ".jpg", ".png", ".bytes"
         };
@@ -57,25 +57,17 @@ namespace AssetBundleBuilder
 
             // 设置ab名
             AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
-            
+
             Builder.AddBuildLog("Set AssetBundleName...");
 
-            Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
+            Dictionary<string, AssetBuildRule> path2ruleMap = new Dictionary<string, AssetBuildRule>();
             for (int i = 0; i < rules.Length; i++)
             {
                 List<AssetBuildRule> ruleList = rules[i].TreeToList();
                 for (int j = 0; j < ruleList.Count; j++)
                 {
                     AssetBuildRule rule = ruleList[j];
-                    if(rule.BuildType == (int)BundleBuildType.Ignore)   continue;
-
-                    AssetBuildRule oldRule = null;
-                    if (ruleMap.TryGetValue(rule.AssetBundleName, out oldRule))
-                    {
-                        if (rule.Path.Length > oldRule.Path.Length)
-                            rule = oldRule;
-                    }
-                    ruleMap[ruleList[j].AssetBundleName] = rule;
+                    path2ruleMap[rule.Path] = rule;
                 }
             }
 
@@ -83,14 +75,10 @@ namespace AssetBundleBuilder
             List<string> files = new List<string>();
             for (int i = 0; i < rules.Length; i++)
             {
-                List<string> rootFiles = BuildUtil.SearchFiles(rules[i] , ruleMap);
-                if(rootFiles != null)
+                List<string> rootFiles = BuildUtil.SearchFiles(rules[i], path2ruleMap);
+                if (rootFiles != null)
                     files.AddRange(rootFiles);
             }
-            
-
-            AssetBuildRule[] buildRules = new AssetBuildRule[ruleMap.Count];
-            ruleMap.Values.CopyTo(buildRules, 0);
 
             Builder.AssetMaps = new Dictionary<string, AssetMap>();
             Dictionary<string, AssetMap> assetMaps = Builder.AssetMaps;
@@ -101,42 +89,32 @@ namespace AssetBundleBuilder
                 AssetMap fileAssetMap = null;
                 if (!assetMaps.TryGetValue(files[i], out fileAssetMap))
                 {
-                    AssetBuildRule rule = findRuleByPath(files[i], buildRules);
-                    if(rule == null)
+                    AssetBuildRule rule = findRuleByPath(files[i], rules);
+                    if (rule == null)
                         Debug.LogError("Cant find bundle rule!" + files[i]);
-                    fileAssetMap = new AssetMap(files[i] , rule);
+                    fileAssetMap = new AssetMap(files[i], rule);
                     assetMaps[files[i]] = fileAssetMap;
                 }
 
                 //被忽略的规则不查找依赖
-                if(fileAssetMap.Rule.BuildType == (int)BundleBuildType.Ignore)  continue;
+                if (fileAssetMap.Rule.BuildType == (int)BundleBuildType.Ignore) continue;
 
                 string[] dependency = AssetDatabase.GetDependencies(files[i]);
-                bool isSceneUnity = files[i].EndsWith(".unity");
+
 
                 for (int j = 0; j < dependency.Length; j++)
                 {
                     string extension = Path.GetExtension(dependency[j]);
 
-                    if(BuilderPreference.ExcludeFiles.Contains(extension) || dependency[j].Equals(files[i]))   continue;  
+                    if (BuilderPreference.ExcludeFiles.Contains(extension) || dependency[j].Equals(files[i])) continue;
 
                     AssetMap assetMap = null;
                     if (!assetMaps.TryGetValue(dependency[j], out assetMap))
                     {
-                        AssetBuildRule rule = findRuleByPath(dependency[j], buildRules);
-
-                        if (rule == null)
-                        {
-                            rule = fileAssetMap.Rule;
-                            if (isSceneUnity)
-                            {
-                                rule = new AssetBuildRule();
-                                rule.AssetBundleName = fileAssetMap.Rule.AssetBundleName + "_deps";
-                            }
-                        }
-
-                        assetMap = new AssetMap(dependency[j] , rule );
-                        assetMaps[dependency[j]] = assetMap;
+                        AssetBuildRule rule = findRuleByPath(dependency[j], rules);
+                        rule = rule == null ? fileAssetMap.Rule : rule;
+                        assetMap = new AssetMap(dependency[j], rule);
+                        //assetMaps[dependency[j]] = assetMap;
                     }
 
                     assetMap.AddReference(fileAssetMap);
@@ -148,8 +126,9 @@ namespace AssetBundleBuilder
             //根据明确的子目录设置AB名,即定义了指定的打包规则的目录
             foreach (AssetMap asset in assetMaps.Values)
             {
-//                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}" , asset.AssetPath , asset.Rule.AssetBundleName) );
-                if(asset.Rule.BuildType == (int)BundleBuildType.Ignore) continue;
+                if (asset.Rule.BuildType == (int)BundleBuildType.Ignore) continue;
+
+//                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}", asset.AssetPath, asset.Rule.AssetBundleName));
 
                 BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule.AssetBundleName);
             }
@@ -163,6 +142,9 @@ namespace AssetBundleBuilder
             //设置依赖文件的Assetbundle分配
             this.checkDependency(assetMaps);
 
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
             Builder.AddBuildLog("Check Dependency... end");
         }
 
@@ -174,23 +156,23 @@ namespace AssetBundleBuilder
         /// <returns></returns>
         private AssetBuildRule findRuleByPath(string filePath, AssetBuildRule[] rules)
         {
-            int length = 0;
+            if (rules == null) return null;
+
             AssetBuildRule rule = null;
-            FileType fileType = BuildUtil.GetFileType(new FileInfo(filePath));
 
             for (int i = 0; i < rules.Length; i++)
             {
-                if(rules[i].FileFilterType != fileType) continue;
+                if (filePath.Equals(rules[i].Path))
+                    return rules[i];
 
-                int pathDepth = rules[i].Path.Length;
-
-                if (pathDepth > length && filePath.StartsWith(rules[i].Path))
+                if (filePath.StartsWith(rules[i].Path + "/"))
                 {
-                    length = pathDepth;
-                    rule = rules[i];
+                    AssetBuildRule childRule = findRuleByPath(filePath, rules[i].Childrens);
+                    rule = childRule != null ? childRule : rules[i];
+                    break;
                 }
             }
-            
+
             return rule;
         }
 
@@ -198,52 +180,68 @@ namespace AssetBundleBuilder
         /// 查找最小打包顺序的打包规则
         /// </summary>
         /// <returns></returns>
-        private AssetBuildRule findRuleByOrder(List<AssetMap> assets)
+        private AssetBuildRule findRuleByOrder(List<AssetMap> assets , AssetBuildRule srcRule)
         {
-            int minOrder = int.MaxValue;
-            AssetBuildRule rule = null;
+            int minOrder = srcRule.Order;
+            AssetBuildRule rule = srcRule;
+
+            int sceneUnityRef = 0;  //是否是场景引用的资源
 
             for (int i = 0; i < assets.Count; i++)
             {
                 AssetBuildRule assetRule = assets[i].Rule;
+                if (assetRule.Path.EndsWith(".unity"))
+                    sceneUnityRef++;
+
                 if (assetRule.Order < minOrder)
                 {
                     minOrder = assetRule.Order;
                     rule = assetRule;
                 }
-
             }
+
+            if (sceneUnityRef > 0)
+            {
+                rule = null;   //直接打包到.unity文件内
+                if (sceneUnityRef > 1)
+                {
+                    //存在多个场景引用，就打到公共场景资源包内
+                    rule = new AssetBuildRule();
+                    rule.AssetBundleName = "scene_publics";
+                }
+            }
+
             return rule;
         }
 
         //设置依赖文件的Assetbundle分配
         // 1.生成引用与依赖的映射关系
         // 2.查找打包规则中的最小Order进行设置
-        private void checkDependency(Dictionary<string , AssetMap> files)
+        private void checkDependency(Dictionary<string, AssetMap> files)
         {
             //设置依赖文件的Assetbundle名称
             foreach (AssetMap asset in files.Values)
             {
                 List<AssetMap> dependencys = asset.Dependencys;
-                if(dependencys == null) continue;
+                if (dependencys == null) continue;
 
                 for (int j = 0; j < dependencys.Count; j++)
                 {
                     AssetImporter importer = AssetImporter.GetAtPath(dependencys[j].AssetPath);
-                    if(!string.IsNullOrEmpty(importer.assetBundleName)) continue;  //已经被设置
+                    if (!string.IsNullOrEmpty(importer.assetBundleName)) continue;  //已经被设置
 
                     AssetMap depAsset = dependencys[j];
                     //查询引用文件中最小的Order,使用最小Order的Assetbundle名称
-                    AssetBuildRule depAssetRule = findRuleByOrder(depAsset.References);  
+                    AssetBuildRule depAssetRule = findRuleByOrder(depAsset.References , depAsset.Rule);
 
-                    if(depAssetRule.BuildType == (int)BundleBuildType.Ignore)   continue;
+                    if (depAssetRule == null || depAssetRule.BuildType == (int)BundleBuildType.Ignore) continue;
 
-                    BuildUtil.SetAssetbundleName(importer , depAssetRule.AssetBundleName);
+                    BuildUtil.SetAssetbundleName(importer, depAssetRule.AssetBundleName);
                 }
             }
 
         }
-        
+
         /// <summary>
         /// 启动Unity打包Assetbundle
         /// </summary>
@@ -262,21 +260,21 @@ namespace AssetBundleBuilder
                 PlayerSettings.bundleVersion = Builder.GameVersion.ToString();
                 File.WriteAllText(bundlePath + "/version.txt", Builder.GameVersion.ToString());
                 Builder.SaveVersion();
-                
+
                 AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(bundlePath, BuilderPreference.BuildBundleOptions, EditorUserBuildSettings.activeBuildTarget);
                 if (manifest == null)
                     throw new Exception("Build assetbundle error");
 
-                string manifestPath = string.Concat(bundlePath , "/" ,BuilderPreference.PlatformTargetFolder.ToLower());
+                string manifestPath = string.Concat(bundlePath, "/", BuilderPreference.PlatformTargetFolder.ToLower());
                 if (File.Exists(manifestPath))
                 {
                     byte[] bytes = File.ReadAllBytes(manifestPath);
                     File.Delete(manifestPath);
-                    File.WriteAllBytes(manifestPath+".ab", bytes);
+                    File.WriteAllBytes(manifestPath + ".ab", bytes);
                 }
                 else
                     Debug.LogError("<<BuildAssetBundle>> Cant find root manifest. ps:" + manifestPath);
-                
+
                 return true;
             }
             catch (Exception e)
@@ -305,8 +303,8 @@ namespace AssetBundleBuilder
                 foreach (var file in files)
                 {
                     index++;
-                    if (file.Name.Contains("config.txt"))   continue;
-                
+                    if (file.Name.Contains("config.txt")) continue;
+
                     string relativePath = file.FullName.Replace("\\", "/");
                     string to = relativePath.Replace(fromPath, toPath);
 

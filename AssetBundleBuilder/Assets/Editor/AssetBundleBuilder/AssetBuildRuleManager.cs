@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace AssetBundleBuilder
 {
-    
+
     public class AssetBuildRuleManager
     {
         private AssetBuildRule[] rootRules;
@@ -26,7 +26,7 @@ namespace AssetBundleBuilder
         {
             get
             {
-                if(instance == null)
+                if (instance == null)
                     instance = new AssetBuildRuleManager();
                 return instance;
             }
@@ -39,14 +39,14 @@ namespace AssetBundleBuilder
         {
             string configPath = BuilderPreference.DEFAULT_CONFIG_NAME;
             if (!File.Exists(configPath)) return;
-            
+
             ABConfigs configs = AssetDatabase.LoadAssetAtPath<ABConfigs>(configPath);
 
             AssetBuildRule[] configRules = configs.Rules;
-            Array.Sort(configRules , (x, y) => x.Path.Length.CompareTo(y.Path.Length));
+            Array.Sort(configRules, (x, y) => x.Path.Length.CompareTo(y.Path.Length));
 
             List<AssetBuildRule> rootRuleList = new List<AssetBuildRule>();
-            
+
             for (int i = 0; i < configRules.Length; i++)
             {
                 bool hasParent = false;
@@ -55,8 +55,8 @@ namespace AssetBundleBuilder
                     hasParent = findParentRecursive(configRules[i], rootRuleList[j]);
                     if (hasParent) break;
                 }
-                
-                if(!hasParent)
+
+                if (!hasParent)
                     rootRuleList.Add(configRules[i]);
             }
 
@@ -66,7 +66,7 @@ namespace AssetBundleBuilder
 
         private bool findParentRecursive(AssetBuildRule buildRule, AssetBuildRule parent)
         {
-            if (buildRule.Equals(parent) || !buildRule.Path.StartsWith(parent.Path + "/") ) return false;
+            if (buildRule.Equals(parent) || !buildRule.Path.StartsWith(parent.Path + "/")) return false;
 
             bool result = false;
             if (parent.Childrens != null)
@@ -74,11 +74,11 @@ namespace AssetBundleBuilder
                 foreach (AssetBuildRule child in parent.Childrens)
                 {
                     result = findParentRecursive(buildRule, child);
-                    if (result) break ;
-                }                
+                    if (result) break;
+                }
             }
 
-            if(!result)
+            if (!result)
                 parent.AddChild(buildRule);
 
             return true;
@@ -95,22 +95,30 @@ namespace AssetBundleBuilder
 
             this.rootRules = rules;
 
-            List<AssetBuildRule> ruleList = new List<AssetBuildRule>();
+            Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
 
             for (int i = 0; i < rules.Length; i++)
             {
-                ruleList.AddRange(rules[i].TreeToList());
+                List<AssetBuildRule> treeList = rules[i].TreeToList();
+                for (int j = 0; j < treeList.Count; j++)
+                {
+                    ruleMap[treeList[j].Path] = treeList[j];
+                }
             }
 
-            ruleList.Sort((x, y) => x.Path.Length.CompareTo(y.Path.Length));
-            
+            AssetBuildRule[] ruleArr = new AssetBuildRule[ruleMap.Count];
+            ruleMap.Values.CopyTo(ruleArr, 0);
+
+            Array.Sort(ruleArr, (x, y) => x.Path.CompareTo(y.Path));
+
             ABConfigs configs = ScriptableObject.CreateInstance<ABConfigs>();
-            configs.Rules = ruleList.ToArray();
-            
+            configs.Rules = ruleArr;
 
-            AssetDatabase.CreateAsset(configs , defaultConfigPath);
+            if (File.Exists(defaultConfigPath)) AssetDatabase.DeleteAsset(defaultConfigPath);
 
-//            Debug.Log("<color=#2fd95b>Save Success !</color>");
+            AssetDatabase.CreateAsset(configs, defaultConfigPath);
+
+            //            Debug.Log("<color=#2fd95b>Save Success !</color>");
         }
 
 

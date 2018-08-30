@@ -235,6 +235,8 @@ namespace AssetBundleBuilder
 
         public void ReflushChildrenRecursive(AssetElement item)
         {
+            item.Reflush();
+
             if (item.children == null) return;
             
             for (int i = 0; i < item.children.Count; i++)

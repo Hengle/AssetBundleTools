@@ -454,7 +454,7 @@ namespace AssetBundleBuilder
                     var path = f.ToLower();
                     if (!path.EndsWith(".lua"))   continue;
                 
-                    string newfile = f.Replace("Assets/", "");
+                    string newfile = f.Replace("assets/", "");
 
                     string dir = Path.GetDirectoryName(f);
                     string relativeDir = dir.Replace(luaDataPath, "");

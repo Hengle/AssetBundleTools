@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using AssetBundleBuilder;
 
 namespace AssetBundleBuilder
 {
@@ -330,9 +329,18 @@ namespace AssetBundleBuilder
             .Where(f => includeSuffixs.Contains(Path.GetExtension(f).ToLower())).ToArray();
 
             for (int i = 0; i < allFiles.Length; i++)
-                allFiles[i] = BuildUtil.RelativePaths(allFiles[i]);
-
-            files.AddRange(allFiles);
+            {
+                string relativePath = BuildUtil.RelativePaths(allFiles[i]);
+                bool isIgnore = false;
+                AssetBuildRule buildRule = null;
+                if (rules.TryGetValue(relativePath, out buildRule))
+                {
+                    isIgnore = buildRule.BuildType == (int) BundleBuildType.Ignore;
+                }
+                
+                if(!isIgnore)
+                    files.Add(relativePath);
+            }
 
             DirectoryInfo[] childDirs = dirInfo.GetDirectories();
 

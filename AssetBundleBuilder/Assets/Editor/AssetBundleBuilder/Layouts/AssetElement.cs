@@ -15,13 +15,13 @@ namespace AssetBundleBuilder
         public FileType FileType { get; private set; }
 
         private string fileName;
-         
+
         public AssetElement(FileSystemInfo info)
         {
             this.name = info.Name;
             fileName = this.name.Split('.')[0].ToLower();
             FileType = BuildUtil.GetFileType(info);
-            
+
             BuildRule = new AssetBuildRule();
             BuildRule.AssetBundleName = info.Name.ToLower();
             BuildRule.Path = BuildUtil.RelativePaths(info.FullName);
@@ -32,7 +32,7 @@ namespace AssetBundleBuilder
             GUID = AssetDatabase.AssetPathToGUID(BuildRule.Path);
         }
 
-        public AssetElement(FileSystemInfo info , AssetBuildRule rule)
+        public AssetElement(FileSystemInfo info, AssetBuildRule rule)
         {
             this.name = info.Name;
             fileName = this.name.Split('.')[0].ToLower();
@@ -44,7 +44,7 @@ namespace AssetBundleBuilder
             GUID = AssetDatabase.AssetPathToGUID(BuildRule.Path);
         }
 
-        public AssetElement(string name , int depth, int id)
+        public AssetElement(string name, int depth, int id)
         {
             this.name = name;
             this.depth = depth;
@@ -60,9 +60,10 @@ namespace AssetBundleBuilder
         {
             AssetElement parentAssetItem = parent as AssetElement;
 
-            if (parentAssetItem.BuildRule.BuildType == 0) //ignore
+            if (parentAssetItem.BuildRule.BuildType == (int)BundleBuildType.Ignore) //ignore
             {
-                BuildRule.BuildType = 0;
+                BuildRule.Order = -1;
+                BuildRule.BuildType = (int)BundleBuildType.Ignore;
                 return;
             }
 
@@ -84,19 +85,28 @@ namespace AssetBundleBuilder
                     BuildRule.AssetBundleName = parentAssetItem.BuildRule.AssetBundleName;
                     BuildRule.Order = parentAssetItem.BuildRule.Order;
                     BuildRule.DownloadOrder = parentAssetItem.BuildRule.DownloadOrder;
-                    BuildRule.BuildType = (int)(BundleBuildType.TogetherFolders | BundleBuildType.TogetherFiles); 
+                    BuildRule.BuildType = (int)(BundleBuildType.TogetherFolders | BundleBuildType.TogetherFiles);
                     return;
-                }                
+                }
             }
 
             string parentBundleName = parentAssetItem.BuildRule.AssetBundleName;
-            if(!string.IsNullOrEmpty(parentBundleName))
+            if (!string.IsNullOrEmpty(parentBundleName))
                 BuildRule.AssetBundleName = string.Concat(parentBundleName, "/", fileName);
-            
+
             //打包顺序
             int offsetOrder = this.BuildRule.Order % 1000;
-            BuildRule.Order = parentAssetItem.BuildRule.Order + offsetOrder;
-            BuildRule.BuildType = (int)BundleBuildType.Separate;
+            if (BuildRule.FileFilterType == FileType.Folder)
+            {
+                //未设置的情况
+                BuildRule.FileFilterType = parentAssetItem.BuildRule.FileFilterType;
+            }
+            BuildRule.Order = BuildUtil.GetFileOrder(BuildRule.FileFilterType) + offsetOrder;
+
+            if (BuildRule.BuildType == (int)BundleBuildType.Ignore)
+                BuildRule.Order = -1;
+
+            //            BuildRule.BuildType = (int)BundleBuildType.Separate;
 
             //下载顺序 todo
         }
