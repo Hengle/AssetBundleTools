@@ -306,9 +306,17 @@ namespace AssetBundleBuilder
         /// <returns></returns>
         public static List<string> SearchFiles(AssetBuildRule root , Dictionary<string, AssetBuildRule> ruleMap)
         {
+            if (root.BuildType == (int)BundleBuildType.Ignore) return null;
+
             string[] extends = GetFileExtension(root.FileFilterType);
             HashSet<string> includeSuffix = new HashSet<string>(extends);
-            return searchFilesRecuivse(root.Path, ruleMap, includeSuffix);
+
+            Dictionary<string, AssetBuildRule> p2r = new Dictionary<string, AssetBuildRule>();
+            foreach (AssetBuildRule rule in ruleMap.Values)
+            {
+                p2r[rule.Path] = rule;
+            }
+            return searchFilesRecuivse(root.Path, p2r, includeSuffix);
         }
 
         private static List<string> searchFilesRecuivse(string folderPath, Dictionary<string, AssetBuildRule> rules , HashSet<string> includeSuffixs)
@@ -335,6 +343,8 @@ namespace AssetBundleBuilder
                 List<string> childFiles = null;
                 if (rules.TryGetValue(relativePath, out buildRule))
                 {
+                    if(buildRule.BuildType == (int)BundleBuildType.Ignore)  continue;
+
                     string[] extends = GetFileExtension(buildRule.FileFilterType);
                     HashSet<string> newIncludeSuffix = new HashSet<string>(extends);
                     childFiles = searchFilesRecuivse(relativePath , rules, newIncludeSuffix);

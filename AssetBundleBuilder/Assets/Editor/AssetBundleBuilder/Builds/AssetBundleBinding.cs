@@ -67,6 +67,7 @@ namespace AssetBundleBuilder
                 for (int j = 0; j < ruleList.Count; j++)
                 {
                     AssetBuildRule rule = ruleList[j];
+                    if(rule.BuildType == (int)BundleBuildType.Ignore)   continue;
 
                     AssetBuildRule oldRule = null;
                     if (ruleMap.TryGetValue(rule.AssetBundleName, out oldRule))
@@ -111,18 +112,29 @@ namespace AssetBundleBuilder
                 if(fileAssetMap.Rule.BuildType == (int)BundleBuildType.Ignore)  continue;
 
                 string[] dependency = AssetDatabase.GetDependencies(files[i]);
+                bool isSceneUnity = files[i].EndsWith(".unity");
 
                 for (int j = 0; j < dependency.Length; j++)
                 {
                     string extension = Path.GetExtension(dependency[j]);
 
-                    if(BuilderPreference.ExcludeFiles.Contains(extension))   continue;  
+                    if(BuilderPreference.ExcludeFiles.Contains(extension) || dependency[j].Equals(files[i]))   continue;  
 
                     AssetMap assetMap = null;
                     if (!assetMaps.TryGetValue(dependency[j], out assetMap))
                     {
                         AssetBuildRule rule = findRuleByPath(dependency[j], buildRules);
-                        rule = rule == null ? fileAssetMap.Rule : rule;
+
+                        if (rule == null)
+                        {
+                            rule = fileAssetMap.Rule;
+                            if (isSceneUnity)
+                            {
+                                rule = new AssetBuildRule();
+                                rule.AssetBundleName = fileAssetMap.Rule.AssetBundleName + "_deps";
+                            }
+                        }
+
                         assetMap = new AssetMap(dependency[j] , rule );
                         assetMaps[dependency[j]] = assetMap;
                     }

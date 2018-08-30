@@ -62,6 +62,8 @@ namespace AssetBundleBuilder
 
             Builder.AddBuildLog(sb.ToString());
 
+            BuildUtil.SwapPathDirectory(savePath);
+
             File.WriteAllBytes(savePath, Crypto.Encode(Riverlake.Encoding.GetBytes(sb.ToString())));
         }
         
