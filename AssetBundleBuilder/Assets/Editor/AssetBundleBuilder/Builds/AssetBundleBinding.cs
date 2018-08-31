@@ -130,7 +130,7 @@ namespace AssetBundleBuilder
 
 //                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}", asset.AssetPath, asset.Rule.AssetBundleName));
 
-                BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule.AssetBundleName);
+                BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule);
             }
 
             AssetDatabase.SaveAssets();
@@ -236,11 +236,12 @@ namespace AssetBundleBuilder
 
                     if (depAssetRule == null || depAssetRule.BuildType == (int)BundleBuildType.Ignore) continue;
 
-                    BuildUtil.SetAssetbundleName(importer, depAssetRule.AssetBundleName);
+                    BuildUtil.SetAssetbundleName(importer, depAssetRule);
                 }
             }
 
         }
+
 
         /// <summary>
         /// 启动Unity打包Assetbundle

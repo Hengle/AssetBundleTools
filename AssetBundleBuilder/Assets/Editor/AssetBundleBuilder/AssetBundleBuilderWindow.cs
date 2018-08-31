@@ -177,14 +177,14 @@ namespace AssetBundleBuilder
             GUILayout.BeginHorizontal();
             GUILayout.Label("Asset Version" , GUILayout.MaxWidth(100));
             GUI.color = Color.gray;
-            GUILayout.TextField("0.0.1");
+            GUILayout.TextField(builder.GameVersion.ToString());
             GUI.color = Color.white;
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("App   Version", GUILayout.MaxWidth(100));
             GUI.color = Color.gray;
-            GUILayout.TextField("0.0.1");
+            GUILayout.TextField(Application.version);
             GUI.color = Color.white;
             GUILayout.EndHorizontal();
 

@@ -102,17 +102,29 @@ namespace AssetBundleBuilder
         }
 
 
-        public static void SetAssetbundleName(string path, string assetbundleName)
+        public static void SetAssetbundleName(string path, AssetBuildRule bundleRule)
         {
             AssetImporter importer = AssetImporter.GetAtPath(path);
-            importer.assetBundleName = assetbundleName;
-            importer.assetBundleVariant = BuilderPreference.VARIANT_V1;
+            SetAssetbundleName(importer , bundleRule);
         }
 
-
-        public static void SetAssetbundleName(AssetImporter importer, string assetbundleName)
+        /// <summary>
+        /// 格式化Bundle名称，添加文件类型，避免不同目录Bundle同名
+        /// </summary>
+        /// <param name="rule"></param>
+        /// <returns></returns>
+        public static string FormatBundleName(AssetBuildRule rule)
         {
-            importer.assetBundleName = assetbundleName;
+            if (rule.FileFilterType == FileType.Shader || rule.FileFilterType == FileType.Font)
+                return rule.AssetBundleName;   //特殊处理shader/font
+
+            return string.Format("{0}_{1}", rule.AssetBundleName, rule.FileFilterType).ToLower();
+        }
+
+        public static void SetAssetbundleName(AssetImporter importer, AssetBuildRule bundleRule)
+        {
+            string bundleName = FormatBundleName(bundleRule);
+            importer.assetBundleName = bundleName;
             importer.assetBundleVariant = BuilderPreference.VARIANT_V1;
         }
 

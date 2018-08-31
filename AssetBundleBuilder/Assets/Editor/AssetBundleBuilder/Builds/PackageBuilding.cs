@@ -91,11 +91,13 @@ namespace AssetBundleBuilder
             {
                 if(bundleRule.PackageType != PackageAssetType.InPackage)  continue;
 
-                string buildBundlePath = string.Concat(bundlePath,"/", bundleRule.AssetBundleName , BuilderPreference.VARIANT_V1);
+                string assetBundleName = BuildUtil.FormatBundleName(bundleRule);
+
+                string buildBundlePath = string.Concat(bundlePath,"/", assetBundleName , BuilderPreference.VARIANT_V1);
 
                 if(!File.Exists(buildBundlePath))   continue;
 
-                string streamBundlePath = string.Concat(targetPath, "/", bundleRule.AssetBundleName, BuilderPreference.VARIANT_V1);
+                string streamBundlePath = string.Concat(targetPath, "/", assetBundleName, BuilderPreference.VARIANT_V1);
 
                 BuildUtil.SwapPathDirectory(streamBundlePath);
 

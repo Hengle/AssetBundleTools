@@ -12,8 +12,7 @@ namespace AssetBundleBuilder
         private AssetBuildRule[] rootRules;
 
         private static AssetBuildRuleManager instance;
-
-
+        
         public AssetBuildRule[] Rules
         {
             get
@@ -39,7 +38,7 @@ namespace AssetBundleBuilder
         {
             string configPath = BuilderPreference.DEFAULT_CONFIG_NAME;
             if (!File.Exists(configPath)) return;
-
+            
             ABConfigs configs = AssetDatabase.LoadAssetAtPath<ABConfigs>(configPath);
 
             AssetBuildRule[] configRules = configs.Rules;
@@ -58,9 +57,11 @@ namespace AssetBundleBuilder
 
                 if (!hasParent)
                     rootRuleList.Add(configRules[i]);
+                
             }
 
             this.rootRules = rootRuleList.ToArray();
+
         }
 
 

@@ -50,7 +50,10 @@ namespace AssetBundleBuilder
                 if(rootLength <= 0)   continue;
 
                 string assetName = asset.AssetPath.Substring(rootLength + 1);
-                string abName = asset.Rule.AssetBundleName;
+                if (asset.Rule.FileFilterType == FileType.Scene)
+                    assetName = Path.GetFileName(asset.AssetPath);
+
+                string abName = BuildUtil.FormatBundleName(asset.Rule);
                 int preload = asset.Rule.LoadType == ELoadType.PreLoad ? 1 : 0;
 
                 string str = string.Format("{0}|{1}.{2}|{3}", assetName.Split('.')[0].ToLower(), abName, BuilderPreference.VARIANT_V1, preload);
@@ -92,7 +95,7 @@ namespace AssetBundleBuilder
                 // fileName|AssetType:value|DownloadOrder:value
                 // todo AssetType 暂时没支持
                 string format = string.Format("{0}|AssetType:{1}|DownloadOrder:{2}", 
-                                              bundle.AssetBundleName, 0,  bundle.DownloadOrder);
+                                              BuildUtil.FormatBundleName(bundle), 0,  bundle.DownloadOrder);
                 sb.AppendLine(format);
             }
 

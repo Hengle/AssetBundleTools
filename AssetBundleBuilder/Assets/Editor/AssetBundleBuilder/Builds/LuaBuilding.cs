@@ -491,7 +491,7 @@ namespace AssetBundleBuilder
     //                UpdateProgress(index++, luaMd5Dict.Count, "Copy no change files...");
             }
     //            EditorUtility.ClearProgressBar();
-//            AssetDatabase.Refresh();
+            AssetDatabase.Refresh();
         }
 
     #endregion
