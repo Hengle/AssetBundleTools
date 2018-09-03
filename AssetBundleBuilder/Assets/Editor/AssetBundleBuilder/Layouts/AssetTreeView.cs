@@ -240,8 +240,7 @@ namespace AssetBundleBuilder
                     }
                     break;
                 case AssetTreeHeader.NameAB:
-//                    EditorGUI.BeginChangeCheck();
-                    EditorGUI.TextField(cellRect, buildRule.AssetBundleName); //buildRule.AssetBundleName = 
+                    buildRule.AssetBundleName = EditorGUI.TextField(cellRect, buildRule.AssetBundleName); //
                     break;
                 case AssetTreeHeader.Order:
                     int newOrder = EditorGUI.IntField(cellRect, buildRule.Order);
@@ -267,13 +266,7 @@ namespace AssetBundleBuilder
                     }
                     break;
                 case AssetTreeHeader.Build:
-                    int buildIndex = Array.FindIndex(Styles.BundleBuildEnums, ev => ev == buildRule.BuildType);
-                    int newBuildIndex = EditorGUI.Popup(cellRect, buildIndex, Styles.BundleBuildOptions);
-                    if (newBuildIndex != buildIndex)
-                    {
-                        buildRule.BuildType = Styles.BundleBuildEnums[newBuildIndex];
-                        this.assetTreeModel.ReflushChildrenRecursive(element);                            
-                    }
+                    drawHeaderBuildType(element , cellRect , buildRule);
                     break;
 //                case AssetTreeHeader.Ignore:
 //                    buildRule.BuildType = (PackageAssetType)EditorGUI.EnumPopup(cellRect, buildRule.BuildType);
@@ -291,6 +284,35 @@ namespace AssetBundleBuilder
             return (int)(item.data.FileType);
         }
 
+
+        private void drawHeaderBuildType(AssetElement element , Rect cellRect , AssetBuildRule buildRule)
+        {
+            int buildIndex = 0 ,newBuildIndex = 0;
+
+            if (element.FileType == FileType.Folder)
+            {
+                buildIndex = Array.FindIndex(Styles.FolderBundleBuildEnums, ev => ev == buildRule.BuildType);
+                newBuildIndex = EditorGUI.Popup(cellRect, buildIndex, Styles.FolderBundleBuildOptions);
+                if (newBuildIndex != buildIndex)
+                {
+                    buildRule.BuildType = Styles.FolderBundleBuildEnums[newBuildIndex];
+                    this.assetTreeModel.ReflushChildrenRecursive(element);
+                }
+            }
+            else
+            {
+                buildIndex = Array.FindIndex(Styles.FileBundleBuildEnums, ev => ev == buildRule.BuildType);
+                newBuildIndex = EditorGUI.Popup(cellRect, buildIndex, Styles.FileBundleBuildOptions);
+                if (newBuildIndex != buildIndex)
+                {
+                    buildRule.BuildType = Styles.FileBundleBuildEnums[newBuildIndex];
+                    this.assetTreeModel.ReflushChildrenRecursive(element);
+                }
+            }
+        }
+
+
+        #region Default Column Headers
 
         public static MultiColumnHeaderState CreateDefaultMultiColumnHeaderState(float treeViewWidth)
         {
@@ -437,5 +459,6 @@ namespace AssetBundleBuilder
             return state;
         }
 
+        #endregion
     }
 }

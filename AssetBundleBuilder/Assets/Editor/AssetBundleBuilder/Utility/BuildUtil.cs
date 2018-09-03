@@ -315,39 +315,52 @@ namespace AssetBundleBuilder
         /// <param name="root"></param>
         /// <param name="ruleMap"></param>
         /// <returns></returns>
-        public static List<string> SearchFiles(AssetBuildRule root , Dictionary<string, AssetBuildRule> ruleMap)
+        public static List<string> SearchFiles(AssetBuildRule root , Dictionary<string, List<AssetBuildRule>> ruleMap)
         {
             if (root.BuildType == (int)BundleBuildType.Ignore) return null;
 
-            string[] extends = GetFileExtension(root.FileFilterType);
-            HashSet<string> includeSuffix = new HashSet<string>(extends);
+            HashSet<string> includeSuffixs = new HashSet<string>();
 
-            Dictionary<string, AssetBuildRule> p2r = new Dictionary<string, AssetBuildRule>();
-            foreach (AssetBuildRule rule in ruleMap.Values)
+            List<AssetBuildRule> pathRules = ruleMap[root.Path];
+
+            for (int i = 0; i < pathRules.Count; i++)
             {
-                p2r[rule.Path] = rule;
+                AssetBuildRule rule = pathRules[i];
+                if (rule.BuildType == (int)BundleBuildType.Ignore) continue;
+
+                string[] extends = GetFileExtension(rule.FileFilterType);
+                for (int j = 0; j < extends.Length; j++)
+                {
+                    includeSuffixs.Add(extends[j]);
+                }
             }
-            return searchFilesRecuivse(root.Path, p2r, includeSuffix);
+
+            return searchFilesRecuivse(root.Path, ruleMap , includeSuffixs);
         }
 
-        private static List<string> searchFilesRecuivse(string folderPath, Dictionary<string, AssetBuildRule> rules , HashSet<string> includeSuffixs)
+        private static List<string> searchFilesRecuivse(string rootPath, Dictionary<string, List<AssetBuildRule>> ruleMap , 
+                                                        HashSet<string> includeSuffixs)
         {
-            DirectoryInfo dirInfo = new DirectoryInfo(folderPath);
+            DirectoryInfo dirInfo = new DirectoryInfo(rootPath);
             if (!dirInfo.Exists) return null;
-
+            
             List<string> files = new List<string>();
-
-            string[] allFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
+            
+            string[] allFiles = Directory.GetFiles(rootPath, "*.*", SearchOption.TopDirectoryOnly)
             .Where(f => includeSuffixs.Contains(Path.GetExtension(f).ToLower())).ToArray();
 
             for (int i = 0; i < allFiles.Length; i++)
             {
                 string relativePath = BuildUtil.RelativePaths(allFiles[i]);
                 bool isIgnore = false;
-                AssetBuildRule buildRule = null;
-                if (rules.TryGetValue(relativePath, out buildRule))
+                List<AssetBuildRule> buildRule = null;
+                if (ruleMap.TryGetValue(relativePath, out buildRule))
                 {
-                    isIgnore = buildRule.BuildType == (int) BundleBuildType.Ignore;
+                    //一个文件只有一个规则
+                    if(buildRule.Count > 1)
+                        Debug.LogError("One file have mul bundle rules !" + buildRule.Count + ", path is " + relativePath);
+
+                    isIgnore = buildRule[0].BuildType == (int) BundleBuildType.Ignore;
                 }
                 
                 if(!isIgnore)
@@ -358,20 +371,30 @@ namespace AssetBundleBuilder
 
             foreach (DirectoryInfo childDir in childDirs)
             {
-                AssetBuildRule buildRule = null;
+                List<AssetBuildRule> buildRules = null;
                 string relativePath = BuildUtil.RelativePaths(childDir.FullName);
                 List<string> childFiles = null;
-                if (rules.TryGetValue(relativePath, out buildRule))
+                if (ruleMap.TryGetValue(relativePath, out buildRules))
                 {
-                    if(buildRule.BuildType == (int)BundleBuildType.Ignore)  continue;
+                    HashSet<string> newIncludeSuffixs = new HashSet<string>();
+                    
+                    for (int i = 0; i < buildRules.Count; i++)
+                    {
+                        AssetBuildRule rule = buildRules[i];
+                        if (rule.BuildType == (int)BundleBuildType.Ignore) continue;
 
-                    string[] extends = GetFileExtension(buildRule.FileFilterType);
-                    HashSet<string> newIncludeSuffix = new HashSet<string>(extends);
-                    childFiles = searchFilesRecuivse(relativePath , rules, newIncludeSuffix);
+                        string[] extends = GetFileExtension(rule.FileFilterType);
+                        for (int j = 0; j < extends.Length; j++)
+                        {
+                            newIncludeSuffixs.Add(extends[j]);
+                        }
+                    }
+
+                    childFiles = searchFilesRecuivse(relativePath, ruleMap, newIncludeSuffixs);
                 }
                 else
                 {
-                    childFiles = searchFilesRecuivse(relativePath , rules, includeSuffixs);
+                    childFiles = searchFilesRecuivse(relativePath , ruleMap, includeSuffixs);
                 }
 
                 if(childFiles != null)

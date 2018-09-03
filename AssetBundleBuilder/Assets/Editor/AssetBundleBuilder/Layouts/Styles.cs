@@ -52,7 +52,7 @@ namespace AssetBundleBuilder
         };
 
 
-        public static GUIContent[] BundleBuildOptions = new GUIContent[]
+        public static GUIContent[] FolderBundleBuildOptions = new GUIContent[]
         {
             new GUIContent("Seperate"), 
             new GUIContent("Together Folders"),
@@ -61,12 +61,25 @@ namespace AssetBundleBuilder
             new GUIContent("Ignore"), 
         };
 
-        public static int[] BundleBuildEnums = new[]
+
+        public static GUIContent[] FileBundleBuildOptions = new GUIContent[]
+        {
+            new GUIContent("Together Files"), 
+            new GUIContent("Ignore"), 
+        };
+
+        public static int[] FolderBundleBuildEnums = new[]
         {
             (int)BundleBuildType.Separate, 
             (int)BundleBuildType.TogetherFolders, 
             (int)BundleBuildType.TogetherFiles, 
             (int)(BundleBuildType.TogetherFolders | BundleBuildType.TogetherFiles), 
+            (int)BundleBuildType.Ignore,
+        };
+
+        public static int[] FileBundleBuildEnums = new[]
+        {
+            (int)BundleBuildType.TogetherFiles,
             (int)BundleBuildType.Ignore,
         };
     }

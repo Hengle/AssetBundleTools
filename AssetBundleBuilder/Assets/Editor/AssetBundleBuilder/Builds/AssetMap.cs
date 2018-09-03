@@ -4,6 +4,7 @@ namespace AssetBundleBuilder
 {
     public class AssetMap
     {
+        
         private List<AssetMap> references;
 
         private string assetPath;
@@ -11,6 +12,8 @@ namespace AssetBundleBuilder
         private AssetBuildRule rule;
 
         private List<AssetMap> dependencys;
+
+        public bool IsBinding { get; set; }
 
         public List<AssetMap> References
         {

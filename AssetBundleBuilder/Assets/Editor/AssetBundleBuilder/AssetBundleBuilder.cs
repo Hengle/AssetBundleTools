@@ -118,6 +118,8 @@ namespace AssetBundleBuilder
             if (File.Exists(destVersionPath))
             {
                 var versionPath = BuilderPreference.BUILD_PATH + "/version.txt";
+                BuildUtil.SwapPathDirectory(versionPath);
+
                 File.Copy(destVersionPath, versionPath, true);
                 gameVersion = GameVersion.CreateVersion(File.ReadAllText(versionPath));
             }

@@ -27,6 +27,7 @@ namespace AssetBundleBuilder
             BuildRule.Path = BuildUtil.RelativePaths(info.FullName);
             BuildRule.FileFilterType = FileType;
             BuildRule.Order = BuildUtil.GetFileOrder(FileType);
+            BuildRule.BuildType = (int)(FileType != FileType.Folder ? BundleBuildType.TogetherFiles : BundleBuildType.Separate);
 
             depth = BuildRule.Path.Split('/').Length - 1;
             GUID = AssetDatabase.AssetPathToGUID(BuildRule.Path);
@@ -90,10 +91,17 @@ namespace AssetBundleBuilder
                 }
             }
 
+            //bundle name
+            string curBundleName = Path.GetFileNameWithoutExtension(BuildRule.AssetBundleName);
             string parentBundleName = parentAssetItem.BuildRule.AssetBundleName;
             if (!string.IsNullOrEmpty(parentBundleName))
-                BuildRule.AssetBundleName = string.Concat(parentBundleName, "/", fileName);
-
+            {
+                if(!fileName.Equals(curBundleName) && !parentAssetItem.name.Equals(curBundleName))
+                    BuildRule.AssetBundleName = string.Concat(parentBundleName, "/", curBundleName);
+                else
+                    BuildRule.AssetBundleName = string.Concat(parentBundleName, "/", fileName);
+            }
+                
             //打包顺序
             int offsetOrder = this.BuildRule.Order % 1000;
             if (BuildRule.FileFilterType == FileType.Folder)

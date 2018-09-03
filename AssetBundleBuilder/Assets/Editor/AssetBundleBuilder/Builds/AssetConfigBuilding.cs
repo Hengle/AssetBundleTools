@@ -37,6 +37,8 @@ namespace AssetBundleBuilder
             
             foreach (AssetMap asset in Builder.AssetMaps.Values)
             {
+                if(!asset.IsBinding)    continue;
+
                 int rootLength = 0;
                 foreach (string rootFolder in BuilderPreference.BundleMapFile)
                 {
@@ -66,7 +68,7 @@ namespace AssetBundleBuilder
             Builder.AddBuildLog(sb.ToString());
 
             BuildUtil.SwapPathDirectory(savePath);
-
+            
             File.WriteAllBytes(savePath, Crypto.Encode(Riverlake.Encoding.GetBytes(sb.ToString())));
         }
         
