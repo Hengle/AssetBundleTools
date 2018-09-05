@@ -10,6 +10,8 @@ namespace AssetBundleBuilder
 {
     public class AssetBundleBuilder
     {
+        private AssetBundleBuilderWindow mainWindow;
+
         private Queue<ABuilding> enumerators = new Queue<ABuilding>();
 
         private IEnumerator curEnumerator;
@@ -31,12 +33,19 @@ namespace AssetBundleBuilder
 
         private GameVersion gameVersion;
         private int apkVersion;
+        
+        private int totalWeight;
+        private float finishWeight;
 
+        private DateTime startTime;
 
-        public float Progress
-        {
-            get { return totalWeight <= 0 ? 0 : finishWeight /totalWeight; }
-        }
+        private List<string> buildLog = new List<string>();
+
+        public float Progress { get; set; }
+        /// <summary>
+        /// 总计消耗时间
+        /// </summary>
+        public double UseTime { get; private set; }
 
         public GameVersion GameVersion
         {
@@ -54,15 +63,21 @@ namespace AssetBundleBuilder
             get { return sdkConfigs[ActiveSdkIndex]; }
         }
 
-        private int totalWeight;
-        private float finishWeight;
-        
-        private StringBuilder buildLog;
-
-
-
-        public AssetBundleBuilder()
+        public int BuildingCount
         {
+            get { return enumerators.Count; }
+        }
+
+        public List<string> BuildLog
+        {
+            get { return buildLog; }
+        }
+
+
+        public AssetBundleBuilder(AssetBundleBuilderWindow window)
+        {
+            mainWindow = window;
+
             readGameVersion();
 
             loadSDKConfig();
@@ -77,11 +92,19 @@ namespace AssetBundleBuilder
 
             this.AddBuilding(new SvnUpdateBuilding());
             this.AddBuilding(new AssetBundleBinding());
-            this.AddBuilding(new AssetConfigBuilding());
             this.AddBuilding(new LuaBuilding());
+            this.AddBuilding(new AssetConfigBuilding());
             this.AddBuilding(new CompressBuilding());
             this.AddBuilding(new SvnCommitBuilding());
-            this.AddBuilding(new PackageBuilding(packageBuildings));
+
+            if(isEnableLayer(packageBuildings, (int)PackageBuildings.SubPackage))
+                this.AddBuilding(new SubPackageBuilding(true));
+
+            if (isEnableLayer(packageBuildings, (int) PackageBuildings.FullPackage))
+            {
+                bool isForceUpdate = isEnableLayer(packageBuildings, (int) PackageBuildings.ForceUpdate);
+                this.AddBuilding(new FullPackageBuilding(true , isForceUpdate));
+            }
             this.AddBuilding(new CDNBuilding());
         }
 
@@ -91,13 +114,13 @@ namespace AssetBundleBuilder
 
             this.IsDebug = true;
             this.AddBuilding(new AssetBundleBinding());
-            this.AddBuilding(new AssetConfigBuilding());
             this.AddBuilding(new LuaBuilding());
+            this.AddBuilding(new AssetConfigBuilding());
 
             if (!isDebug)
             {
                 this.AddBuilding(new CompressBuilding());
-                this.AddBuilding(new PackageBuilding((int)PackageBuildings.SubPackage));
+                this.AddBuilding(new SubPackageBuilding(true));
             }
         }
 
@@ -169,35 +192,42 @@ namespace AssetBundleBuilder
         /// </summary>
         public void OnClickBuild(int buildings , int packageBuildings)
         {
-            System.Func<Buildings, bool> isBuilding = delegate(Buildings eBuilding)
-            {
-                return (buildings & (int)eBuilding) != 0;
-            };
-
             clear();
 
-            if (isBuilding(Buildings.Assetbundle))
+            if (isBuilding(buildings , Buildings.Assetbundle))
             {
                 this.AddBuilding(new AssetBundleBinding());
             }
 
-            if(isBuilding(Buildings.Assetbundle) || isBuilding(Buildings.Lua))
-            this.AddBuilding(new AssetConfigBuilding());
-
-            if (isBuilding(Buildings.Lua))
+            if (isBuilding(buildings, Buildings.Lua))
                 this.AddBuilding(new LuaBuilding());
 
-            if(isBuilding(Buildings.Compress))
+            if (isBuilding(buildings, Buildings.Assetbundle) || isBuilding(buildings, Buildings.Lua))
+                this.AddBuilding(new AssetConfigBuilding());
+
+            if (isBuilding(buildings, Buildings.Compress))
                 this.AddBuilding(new CompressBuilding());
 
-            if(isBuilding(Buildings.Package))
-                this.AddBuilding(new PackageBuilding(packageBuildings));
+            if(isBuilding(buildings, Buildings.SubPackage))
+                this.AddBuilding(new SubPackageBuilding(isEnableLayer(packageBuildings , (int)PackageBuildings.BuildApp)));
+
+            if(isBuilding(buildings , Buildings.FullPackage))
+                this.AddBuilding(new FullPackageBuilding(false , false));
 
             this.StartBuild();
         }
 
-        
-        
+        private bool isBuilding (int buildings , Buildings eBuilding)
+        {
+            return (buildings & (int)eBuilding) != 0;
+        }
+
+
+        private bool isEnableLayer(int mask, int layer)
+        {
+            return (mask & (int)layer) != 0;
+        }
+
         /// <summary>
         /// 点击一键生成
         /// </summary>
@@ -221,53 +251,77 @@ namespace AssetBundleBuilder
 
         public void StartBuild()
         {
-            if (buildLog == null)
-                buildLog = new StringBuilder();
-            buildLog.Length = 0;
-
+            buildLog.Clear();
+            Progress = 0;
+            
             curBuilding = enumerators.Dequeue();
             curEnumerator = curBuilding.OnBuilding();
 
-            EditorApplication.update += onUpdateBuilding;
+            this.mainWindow.SetPanelState(EToolbar.Building);
+            startTime = DateTime.Now;
+
+            EditorCoroutines.StartCoroutine(this.onUpdateBuilding(), this.mainWindow);
         }
 
 
         public void CanleBuild()
         {
-            clear();
-            EditorApplication.update -= onUpdateBuilding;
-            Debug.LogWarning("!!! Canle Build !!!");
+           
+            EditorCoroutines.StopAllCoroutines(this.mainWindow);
+            
+            Debug.LogWarning("!!!-----Canle Build------!!" + enumerators.Count);
         }
 
 
         public void AddBuildLog(string log)
         {
-            buildLog.AppendLine(log);
+            buildLog.Add(log);
             Debug.Log(log);
         }
 
 
-        private void onUpdateBuilding()
+        public IEnumerator onUpdateBuilding()
         {
-            if (curEnumerator == null)
+            using (new LockAssemblies())
             {
-                CanleBuild();
-                return;
-            }
-
-            if (!curEnumerator.MoveNext())
-            {
-                finishWeight += curBuilding.Weight;
-                curEnumerator = null;
-
-                if (enumerators.Count > 0)
+                while (true)
                 {
-                    curBuilding = enumerators.Dequeue();
-                    curEnumerator = curBuilding.OnBuilding();
-                }
-                else
-                {
-                    Debug.Log("<color=green>Build success!</color>");
+                    if (curEnumerator == null)
+                    {
+                        clear();
+                        Progress = 1f;
+                        TimeSpan ts = DateTime.Now - startTime;
+                        UseTime = ts.TotalMilliseconds;
+
+                        Debug.Log("<color=green>Build finish!</color>");
+                        yield break;
+                    }
+
+                    if (!curEnumerator.MoveNext())
+                    {
+                        finishWeight += curBuilding.Weight;
+
+                        if (enumerators.Count > 0)
+                        {
+                            curBuilding = enumerators.Dequeue();
+                            curEnumerator = curBuilding.OnBuilding();
+
+                            if (curEnumerator == null)
+                                Debug.LogError("Wtf building enumrator is null ");
+                        }
+                        else
+                        {
+                            curEnumerator = null;
+                            curBuilding = null;
+                        }
+                    }
+
+                    if (curBuilding != null)
+                    {
+                        Progress = (finishWeight + curBuilding.Progress * curBuilding.Weight) / totalWeight;
+                    }
+
+                    yield return null;
                 }
             }
         }
@@ -319,8 +373,6 @@ namespace AssetBundleBuilder
             this.enumerators.Clear();
             totalWeight = 0;
             finishWeight = 0;
-            ApkSavePath = String.Empty;
-
         }
 
 

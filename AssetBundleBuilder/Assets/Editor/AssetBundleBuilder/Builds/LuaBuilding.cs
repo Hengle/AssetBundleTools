@@ -35,7 +35,6 @@ namespace AssetBundleBuilder
 #if UNITY_IOS
             BuildLuaBundles();
             CopyHandleBundle();
-            BuildFileIndex();
 #else
             if (!rebuildAll)
             {
@@ -52,13 +51,8 @@ namespace AssetBundleBuilder
                 CompareLuaMd5(luaMd5Dict);
                 RecordLuaMd5();
             }
-            AssetDatabase.Refresh();
-
-            BuildFileIndex();
 #endif
             AssetDatabase.Refresh();
-
-            yield return null;
         }
 
         /// <summary>
@@ -90,6 +84,8 @@ namespace AssetBundleBuilder
                     }
                 }
             }
+
+            Builder.AddBuildLog("<Lua Building> copy lua handle bundles ");
         }
 
         private void ClearAllLuaFiles() {
@@ -173,6 +169,8 @@ namespace AssetBundleBuilder
 
             Directory.Delete(streamDir, true);
             AssetDatabase.Refresh();
+
+            Builder.AddBuildLog("<Lua Building> Build Lua Bundles success ");
         }
 
         /// <summary>
@@ -212,63 +210,6 @@ namespace AssetBundleBuilder
     //        AssetDatabase.Refresh();
         }
     
-        private void BuildFileIndex() {
-            string resPath = BuilderPreference.BUILD_PATH +  "/";
-            //----------------------创建文件列表-----------------------
-            string newFilePath = resPath + "bundles/files.txt";
-            if (File.Exists(newFilePath)) File.Delete(newFilePath);
-        
-            string tempSizeFile = resPath + "tempsizefile.txt";
-            Dictionary<string, string> assetTypeDict = new Dictionary<string, string>();
-            if (File.Exists(tempSizeFile))
-            {
-                var sizeFileContent = File.ReadAllText(tempSizeFile);
-                var temps = sizeFileContent.Split('\n');
-                for (int i = 0; i < temps.Length; ++i)
-                {
-                    if (!string.IsNullOrEmpty(temps[i]))
-                    {
-                        var temp = temps[i].Split('|');
-                        if (temp.Length != 2 && temp.Length != 3) throw new System.IndexOutOfRangeException();
-
-                        var assetType = temp[1];
-                        if (temp.Length == 3) assetType += "|" + temp[2];
-
-                        assetTypeDict.Add(temp[0], assetType);
-                        //UpdateProgress(i, temps.Length, temps[i]);
-                    }
-                }
-    //            EditorUtility.ClearProgressBar();
-            }
-
-            List<string> includeFiles = BuildUtil.SearchFiles(resPath, SearchOption.AllDirectories);
-            HashSet<string> excludeSuffxs= new HashSet<string>(){".DS_Store" , ".manifest"};  //排除文件
-
-            BuildUtil.SwapPathDirectory(newFilePath);
-
-            using (FileStream fs = new FileStream(newFilePath, FileMode.CreateNew))
-            {
-                StreamWriter sw = new StreamWriter(fs);
-                for (int i = 0; i < includeFiles.Count; i++) {
-                    string file = includeFiles[i];
-                    string ext = Path.GetExtension(file);
-
-                    if (excludeSuffxs.Contains(ext) || file.EndsWith("apk_version.txt") || file.Contains("tempsizefile.txt") || file.Contains("luamd5.txt")) continue;
-
-                    string md5 = MD5.ComputeHashString(file);
-                    int size = (int)new FileInfo(file).Length;
-                    string value = file.Replace(resPath, string.Empty).ToLower();
-                    if (assetTypeDict.ContainsKey(value))
-                        sw.WriteLine("{0}|{1}|{2}|{3}" ,value , md5 , size , assetTypeDict[value]);
-                    else
-                        sw.WriteLine("{0}|{1}|{2}", value, md5, size);
-        //            UpdateProgress(i, includeFiles.Count, file);
-
-                }
-                sw.Close();
-            }
-    //        EditorUtility.ClearProgressBar();
-        }
 
         /// <summary>
         /// 数据目录
@@ -362,7 +303,7 @@ namespace AssetBundleBuilder
 //                UpdateProgress(i, lines.Length, "Getting lua md5...");
             }
 
-            Builder.AddBuildLog("Getting lua md5...");
+            Builder.AddBuildLog("<Lua Building> Getting lua md5...");
 //            EditorUtility.ClearProgressBar();
 //            AssetDatabase.Refresh();
             
@@ -433,7 +374,10 @@ namespace AssetBundleBuilder
                     }
                 }
     //            UpdateProgress(index++, luaMd5Dict.Count, "Comparing lua md5...");
-            }
+            }  // end foreach 
+
+            Builder.AddBuildLog("<Lua Building> CompareLuaMd5 finish ");
+
             CopyNoChangeLuaFiles(copyLuaFiles);
         }
 
@@ -471,6 +415,8 @@ namespace AssetBundleBuilder
             //重写记录文件
             string luaMd5File = BuilderPreference.BUILD_PATH + "/luamd5.txt";
             File.WriteAllText(luaMd5File, sb.ToString());
+
+            Builder.AddBuildLog("<Lua Building> record lua md5 finish ");
         }
 
         /// <summary>
@@ -490,7 +436,9 @@ namespace AssetBundleBuilder
                 if (File.Exists(fromPath)) File.Copy(fromPath, toPath, true);
     //                UpdateProgress(index++, luaMd5Dict.Count, "Copy no change files...");
             }
-    //            EditorUtility.ClearProgressBar();
+            //            EditorUtility.ClearProgressBar();
+            Builder.AddBuildLog("<Lua Building> Copy no change lua files to bundle path ");
+
             AssetDatabase.Refresh();
         }
 

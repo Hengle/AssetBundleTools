@@ -2,6 +2,11 @@
 
 namespace AssetBundleBuilder
 {
+    public enum EToolbar
+    {
+        Home = 0, Building, Setting
+    }
+
     public enum ELoadType
     {
          None , PreLoad
@@ -63,8 +68,9 @@ namespace AssetBundleBuilder
         Lua = 1 << 3,
         Compress = 1 << 4,
         SvnCommit = 1 << 5,
-        Package = 1 << 6,
-        UploadCDN = 1 << 7,
+        SubPackage = 1 << 6,
+        FullPackage = 1 << 7,
+        UploadCDN = 1 << 8,
     }
 
     public enum PackageBuildings

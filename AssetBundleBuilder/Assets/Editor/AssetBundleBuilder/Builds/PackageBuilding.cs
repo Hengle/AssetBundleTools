@@ -13,161 +13,20 @@ namespace AssetBundleBuilder
     /// <summary>
     /// 资源分包阶段，打包资源完成后，将不同资源拷贝到对应包体对应的目录
     /// </summary>
-    public class PackageBuilding : ABuilding
+    public abstract class PackageBuilding : ABuilding
     {
-        private int packageBuildings = -1;
+        protected bool isBuildApp;
 
-        public PackageBuilding(int packages) : base(20)
+        public PackageBuilding(bool buildApp) : base(20)
         {
-            packageBuildings = packages;
+            this.isBuildApp = buildApp;
         }
 
-        /// <summary>
-        /// 是否激活对应类型的生成
-        /// </summary>
-        /// <returns></returns>
-        private bool IsPackageBuilding(PackageBuildings building)
-        {
-            return (packageBuildings & (int)building) != 0;
-        }
-
-        public override IEnumerator OnBuilding()
-        {
-            if (IsPackageBuilding(PackageBuildings.SubPackage))
-            {
-                //打包测试包
-                
-                CopyPackableFiles();
-
-                if(IsPackageBuilding(PackageBuildings.BuildApp))
-                    BuildApp(false, false);
-            }
-
-            yield return null;
-
-            bool isBuildFullPackage = IsPackageBuilding(PackageBuildings.FullPackage);
-            if (isBuildFullPackage)
-            {
-                CopyAllBundles();
-
-                if (IsPackageBuilding(PackageBuildings.BuildApp))
-                {
-                    bool isForceUpdatePackage = IsPackageBuilding(PackageBuildings.ForceUpdate);
-                    string appPath = BuildApp(true, isForceUpdatePackage);
-
-                    EditorUtility.RevealInFinder(appPath);
-
-                    ResetConfig();
-                }
-            }
-        }
-
-        /// <summary>
-        /// 复制分包资源到StreamingAssets目录下
-        /// </summary>
-        void CopyPackableFiles()
-        {
-            string targetPath = BuilderPreference.StreamingAssetsPlatormPath;
-            if (Directory.Exists(targetPath))   Directory.Delete(targetPath, true);
-            Directory.CreateDirectory(targetPath);
-
-            string bundlePath = BuilderPreference.BUILD_PATH;
-            
-            //拷贝StreamAsset目录中的资源
-            AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
-            Dictionary<string, AssetBuildRule> ruleMap = new Dictionary<string, AssetBuildRule>();
-
-            for (int i = 0; i < rules.Length; i++)
-            {
-                List<AssetBuildRule> ruleList = rules[i].TreeToList();
-                for (int j = 0; j < ruleList.Count; j++)
-                {
-                    ruleMap[ruleList[j].AssetBundleName] = ruleList[j];
-                }
-            }
-
-            //只拷贝整包类型的文件
-            foreach (AssetBuildRule bundleRule in ruleMap.Values)
-            {
-                if(bundleRule.PackageType != PackageAssetType.InPackage)  continue;
-
-                string assetBundleName = BuildUtil.FormatBundleName(bundleRule);
-
-                string buildBundlePath = string.Concat(bundlePath,"/", assetBundleName , BuilderPreference.VARIANT_V1);
-
-                if(!File.Exists(buildBundlePath))   continue;
-
-                string streamBundlePath = string.Concat(targetPath, "/", assetBundleName, BuilderPreference.VARIANT_V1);
-
-                BuildUtil.SwapPathDirectory(streamBundlePath);
-
-                File.Copy(buildBundlePath , streamBundlePath);
-            }
-
-            Action<List<string>, string> copyFiles = (filePaths , rootPath) =>
-            {
-                for (int i = 0; i < filePaths.Count; i++)
-                {
-                    string relativePath = filePaths[i];
-                    string streamBundlePath = relativePath.Replace(rootPath, targetPath);
-
-                    BuildUtil.SwapPathDirectory(streamBundlePath);
-
-                    File.Copy(relativePath, streamBundlePath);
-                }
-            };
-
-            HashSet<string> includeExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
-            //拷贝bundle配置目录的配置文件
-            string bundleConfigPath = string.Concat(bundlePath, "/bundles");
-            List<string> files = BuildUtil.SearchIncludeFiles(bundleConfigPath, SearchOption.AllDirectories, includeExtensions);
-            copyFiles(files, bundleConfigPath);
-
-            //拷贝Lua目录代码
-            string luaBundlePath = string.Concat(bundlePath, "/lua");
-            files = BuildUtil.SearchIncludeFiles(luaBundlePath, SearchOption.AllDirectories, includeExtensions);
-            copyFiles(files, luaBundlePath);
-
-            AssetDatabase.Refresh();
-
-            Builder.AddBuildLog("[end]Copy sub package files ...");
-            CompressWithZSTD(1024 * 1024 * 10);
-        }
-
-        private void CopyAllBundles()
-        {
-            string targetPath = BuilderPreference.StreamingAssetsPlatormPath;
-            if (Directory.Exists(targetPath))   Directory.Delete(targetPath, true);
-            Directory.CreateDirectory(targetPath);
-            
-            string buildPath = BuilderPreference.BUILD_PATH;
-            HashSet<string> withExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
-            List<string> files = BuildUtil.SearchIncludeFiles(buildPath, SearchOption.AllDirectories , withExtensions);
-
-            Builder.AddBuildLog("Copy all bundle ...");
-//            int buildPathLength = buildPath.Length + 1; 
-            for (int i = 0; i < files.Count; ++i)
-            {
-                string fileName = Path.GetFileName(files[i]);
-                if (fileName == "tempsizefile.txt" || fileName == "luamd5.txt") continue;
-                //ABPackHelper.ShowProgress("Copying files...", (float)i / (float)files.Length);
-                
-                string streamBundlePath = files[i].Replace(buildPath, targetPath);
-
-                BuildUtil.SwapPathDirectory(streamBundlePath);
-                
-                File.Copy(files[i], streamBundlePath);
-            }
-            AssetDatabase.Refresh();
-//            ABPackHelper.ShowProgress("", 1);
-            CompressWithZSTD(1024 * 1024 * 5);
-        }
-
-        /// <summary>
+       /// <summary>
         /// 压缩StreamAsset目录的资源
         /// </summary>
         /// <param name="maxFileSize"></param>
-        void CompressWithZSTD(long maxFileSize)
+        protected void CompressWithZSTD(long maxFileSize)
         {
             string outPutPath = BuilderPreference.StreamingAssetsPlatormPath;
 //            ABPackHelper.ShowProgress("Hold on...", 0);
@@ -276,15 +135,15 @@ namespace AssetBundleBuilder
 
             var packFlistPath = outPutPath + "/packlist.txt";
             File.WriteAllText(packFlistPath, builder.ToString());
-//            AssetDatabase.Refresh();
 
-            Builder.AddBuildLog("Compress Zstd Finished...");
+            AssetDatabase.Refresh();
         }
 
 
-        private string BuildApp(bool packAllRes, bool forceUpdate)
+        protected string BuildApp(bool packAllRes, bool forceUpdate)
         {
-            Builder.AddBuildLog("Build App Start !...");
+            Builder.AddBuildLog("Build App Start !... packAllRes:" + packAllRes + ",force update:" + forceUpdate);
+
             var option = BuildOptions.None;
             if (Builder.IsDebug) option |= BuildOptions.AllowDebugging;
             if (Builder.IsBuildDev) option |= BuildOptions.Development;
@@ -323,9 +182,9 @@ namespace AssetBundleBuilder
                         if (File.Exists(final_path)) File.Delete(final_path);
                         // 写入并保存sdk启用配置
 //                        item.CopyConfig();
-                        item.CopySDK();
-                        item.SetPlayerSetting(curSdkConfig.splash_image);
-                        item.SaveSDKConfig();
+//                        item.CopySDK();
+//                        item.SetPlayerSetting(curSdkConfig.splash_image);
+//                        item.SaveSDKConfig();
                         //item.SplitAssets(sdkConfig.split_assets);
                         if (item.update_along == 0 && forceUpdate)
                         {
@@ -394,17 +253,6 @@ namespace AssetBundleBuilder
                 Debug.LogError("Cant find build scene !");
 
             return names.ToArray();
-        }
-
-        void ResetConfig()
-        {
-            string resources_path = "Assets/Resources/";
-            if (File.Exists(resources_path + "config1.tmp"))
-            {
-                File.WriteAllText(resources_path + "config.txt", File.ReadAllText(resources_path + "config1.tmp"));
-                File.Delete(resources_path + "config1.tmp");
-                AssetDatabase.Refresh();
-            }
         }
     }
 }

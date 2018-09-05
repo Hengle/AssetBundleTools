@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -31,7 +32,7 @@ namespace AssetBundleBuilder
             
             for (int i = 0; i < rules.Length; i++)
             {
-                this.InitTreeElement(rules[i], root);
+                this.InitTreeElement(rules[i]);
             }
         }
 
@@ -62,35 +63,42 @@ namespace AssetBundleBuilder
         }
 
 
-        public void InitTreeElement(AssetBuildRule rule , AssetElement parent)
+        public void InitTreeElement(AssetBuildRule rule)
         {
             index++;
-
-            string suffix = Path.GetExtension(rule.Path);
-            FileSystemInfo fsi = null;
-            if(string.IsNullOrEmpty(suffix))
-                fsi = new DirectoryInfo(rule.Path);
-            else
-                fsi = new FileInfo(rule.Path);
-
-            AssetElement newEle = new AssetElement(fsi , rule);
-            newEle.id = index;
-            newEle.parent = parent;
-
-            m_Data.Add(newEle);
-
-            if (parent.children == null)
-                parent.children = new List<TreeElement>();
-
-            parent.children.Add(newEle);
+            AssetElement ele = AddParentRecursive(rule.Path, m_Data);
+            ele.BuildRule = rule;
+            m_Data.Add(ele);
 
             if (rule.Childrens != null)
             {
                 for (int i = 0; i < rule.Childrens.Length; i++)
                 {
-                    InitTreeElement(rule.Childrens[i], newEle);
+                    InitChildElements(rule.Childrens[i], ele);
                 }
-            }  
+            }
+        }
+
+
+        public void InitChildElements(AssetBuildRule rule, AssetElement parent)
+        {
+            string suffix = Path.GetExtension(rule.Path);
+            FileSystemInfo fsi = null;
+            if (string.IsNullOrEmpty(suffix))
+                fsi = new DirectoryInfo(rule.Path);
+            else
+                fsi = new FileInfo(rule.Path);
+
+            AssetElement newEle = CreateTreeViewItemForGameObject(fsi, rule, parent, Int32.MaxValue);
+            m_Data.Add(newEle);
+
+            if (rule.Childrens != null)
+            {
+                for (int i = 0; i < rule.Childrens.Length; i++)
+                {
+                    InitChildElements(rule.Childrens[i], newEle);
+                }
+            }
         }
 
         /// <summary>
@@ -199,6 +207,37 @@ namespace AssetBundleBuilder
             }
         }
 
+
+        public AssetElement AddParentRecursive(string path, IList<AssetElement> rows)
+        {
+            if (path.Equals("Assets")) return root;
+
+            string parentPath = Path.GetDirectoryName(path);
+            
+            AssetElement parentItem = null;
+                
+            string guid = AssetDatabase.AssetPathToGUID(parentPath);
+            parentItem = FindGuid(guid);
+
+            if (parentItem == null)
+            {
+                parentItem = AddParentRecursive(parentPath, rows);
+            }
+            
+            string suffix = Path.GetExtension(path);
+            FileSystemInfo fsi = null;
+            if (string.IsNullOrEmpty(suffix))
+                fsi = new DirectoryInfo(path);
+            else
+                fsi = new FileInfo(path);
+
+            AssetElement item = CreateTreeViewItemForGameObject(fsi, parentItem , int.MaxValue);
+
+            rows.Add(item);
+
+            return item;
+        }
+
         static AssetElement CreateTreeViewItemForGameObject(FileSystemInfo file , AssetElement parent , int insertIndex)
         {
             // We can use the GameObject instanceID for TreeViewItem id, as it ensured to be unique among other items in the tree.
@@ -209,29 +248,48 @@ namespace AssetBundleBuilder
             
             AssetElement newEle = new AssetElement(file);
             newEle.id = index;
-            newEle.parent = parent;
             
-
-            if (parent.BuildRule != null)
-            {
-                if(!string.IsNullOrEmpty(parent.BuildRule.AssetBundleName))
-                    newEle.BuildRule.AssetBundleName = string.Concat(parent.BuildRule.AssetBundleName, "/", newEle.BuildRule.AssetBundleName);
-                newEle.BuildRule.FileFilterType = parent.BuildRule.FileFilterType;
-
-                parent.BuildRule.AddChild(newEle.BuildRule);
-            }
-            
-            if (parent.children == null)
-                parent.children = new List<TreeElement>();
-
-            if (parent.children.Count > insertIndex)
-                parent.children.Insert(insertIndex, newEle);
-            else
-                parent.children.Add(newEle);
+            if (!string.IsNullOrEmpty(parent.BuildRule.AssetBundleName))
+                newEle.BuildRule.AssetBundleName = string.Concat(parent.BuildRule.AssetBundleName, "/", newEle.BuildRule.AssetBundleName);
+            newEle.BuildRule.FileFilterType = parent.BuildRule.FileFilterType;
+                
+            setParent(newEle, parent, insertIndex);
 
             return newEle;
         }
 
+        static AssetElement CreateTreeViewItemForGameObject(FileSystemInfo file, AssetBuildRule rule, AssetElement parent, int insertIndex)
+        {
+            // We can use the GameObject instanceID for TreeViewItem id, as it ensured to be unique among other items in the tree.
+            // To optimize reload time we could delay fetching the transform.name until it used for rendering (prevents allocating strings 
+            // for items not rendered in large trees)
+            // We just set depth to -1 here and then call SetupDepthsFromParentsAndChildren at the end of BuildRootAndRows to set the depths.
+            index++;
+
+            AssetElement newEle = new AssetElement(file , rule);
+            newEle.id = index;
+
+            setParent(newEle , parent , insertIndex);
+
+            return newEle;
+        }
+
+
+        private static void setParent(AssetElement child, AssetElement parent, int insertIndex)
+        {
+            child.parent = parent;
+
+            parent.BuildRule.AddChild(child.BuildRule);
+            
+
+            if (parent.children == null)
+                parent.children = new List<TreeElement>();
+
+            if (parent.children.Count > insertIndex)
+                parent.children.Insert(insertIndex, child);
+            else
+                parent.children.Add(child);
+        }
 
         public void ReflushChildrenRecursive(AssetElement item)
         {

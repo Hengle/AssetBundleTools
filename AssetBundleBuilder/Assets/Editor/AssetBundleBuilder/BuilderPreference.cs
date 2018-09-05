@@ -26,7 +26,7 @@ namespace AssetBundleBuilder
         /// </summary>
         public static HashSet<string> BundleMapFile = new HashSet<string>()
         {
-            "Assets/Res","Assets/Scenes/Level"
+            "Assets/Res","Assets/Scenes"
         }; 
 
         public static BuildAssetBundleOptions BuildBundleOptions = BuildAssetBundleOptions.DeterministicAssetBundle | 

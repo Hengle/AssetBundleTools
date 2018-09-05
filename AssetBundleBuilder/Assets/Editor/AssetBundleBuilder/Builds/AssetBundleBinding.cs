@@ -25,10 +25,12 @@ namespace AssetBundleBuilder
 
         public override IEnumerator OnBuilding()
         {
+            yield return null;
+
             //1.清除Assetbundle标记
             BuildUtil.ClearAssetBundleName();
-            AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            Builder.AddBuildLog("<Assetbundle Building> clear all assetbundle names ");
 
             yield return null;
 
@@ -48,6 +50,8 @@ namespace AssetBundleBuilder
             yield return null;
 
             PackPlayerModelTexture();
+
+            AssetDatabase.Refresh();
         }
 
         /// <summary>
@@ -62,7 +66,7 @@ namespace AssetBundleBuilder
             // 设置ab名
             AssetBuildRule[] rules = AssetBuildRuleManager.Instance.Rules;
 
-            Builder.AddBuildLog("Set AssetBundleName...");
+            Builder.AddBuildLog("<Assetbundle Building> Start set AssetBundleName...");
 
             Dictionary<string, List<AssetBuildRule>> path2ruleMap = new Dictionary<string, List<AssetBuildRule>>();
             for (int i = 0; i < rules.Length; i++)
@@ -151,7 +155,7 @@ namespace AssetBundleBuilder
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Builder.AddBuildLog("set assetbundle name ... end");
+            Builder.AddBuildLog("<Assetbundle Building> set assetbundle name ... end");
 
 
             //设置依赖文件的Assetbundle分配
@@ -160,7 +164,7 @@ namespace AssetBundleBuilder
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Builder.AddBuildLog("Check Dependency... end");
+            Builder.AddBuildLog("<Assetbundle Building> Check Dependency... end");
         }
 
         /// <summary>
@@ -294,6 +298,7 @@ namespace AssetBundleBuilder
                 else
                     Debug.LogError("<<BuildAssetBundle>> Cant find root manifest. ps:" + manifestPath);
 
+                Builder.AddBuildLog("<Assetbundle Building> build assetbundles finish !");
                 return true;
             }
             catch (Exception e)
@@ -306,7 +311,7 @@ namespace AssetBundleBuilder
 
         public void CopyToAssetBundle()
         {
-            Builder.AddBuildLog("Copying to AssetBundle folder...");
+            Builder.AddBuildLog("<Assetbundle Building> Copying to AssetBundle folder...");
 
             string fromPath = BuilderPreference.TEMP_ASSET_PATH;
             string toPath = BuilderPreference.BUILD_PATH;
@@ -332,7 +337,7 @@ namespace AssetBundleBuilder
                 }
             }
 
-            Builder.AddBuildLog("[end]Copying to AssetBundle folder...");
+            Builder.AddBuildLog("<Assetbundle Building> Copying to AssetBundle folder end ...");
         }
 
         /// <summary>
@@ -341,7 +346,7 @@ namespace AssetBundleBuilder
         private void RemoveNotExsitBundles()
         {
             string[] files = Directory.GetFiles(BuilderPreference.BUILD_PATH, "*.ab", SearchOption.AllDirectories);
-            Builder.AddBuildLog("Removing not exsit bundles...");
+            Builder.AddBuildLog("<Assetbundle Building> Removing not exsit bundles...");
 
             string[] assetBundles = AssetDatabase.GetAllAssetBundleNames();
             HashSet<string> allBundleSet = new HashSet<string>(assetBundles);
@@ -387,7 +392,7 @@ namespace AssetBundleBuilder
             string[] subFolder = new string[3] { "Players", "Weapons", "Wings" };
 
             Dictionary<string, List<string>> textureDict = new Dictionary<string, List<string>>();
-            Builder.AddBuildLog("Get model texture map...");
+            Builder.AddBuildLog("<Assetbundle Building> Get model texture map...");
 
             for (int i = 0; i < subFolder.Length; ++i)
             {
@@ -424,41 +429,44 @@ namespace AssetBundleBuilder
             BuildUtil.SwapDirectory(save_path);
 
             int index = 0;
-            Builder.AddBuildLog("Pack Model Texture...");
-            foreach (var pair in textureDict)
+            Builder.AddBuildLog("<Assetbundle Building> Pack Model Texture...");
+            foreach (string fileName in textureDict.Keys)
             {
-                if (pair.Key.Contains("_normal", StringComparison.OrdinalIgnoreCase))
+                List<string> files = textureDict[fileName];
+                if (fileName.Contains("_normal", StringComparison.OrdinalIgnoreCase))
                 {
-                    for (int i = 0; i < pair.Value.Count; ++i)
+                    for (int i = 0; i < files.Count; ++i)
                     {
-                        if (pair.Value[i].Contains("/Players/"))
+                        if (files[i].Contains("/Players/"))
                         {
-                            if (File.Exists(pair.Value[i]))
+                            if (File.Exists(files[i]))
                             {
-                                File.Delete(pair.Key);
+                                File.Delete(fileName);
                                 break;
                             }
                         }
                     }
-                    if (pair.Value.Count < 2) continue;
                 }
 
-                var file_path = string.Concat(save_path, "/", pair.Key, ".bytes").ToLower();
-                var pngBytes = File.ReadAllBytes(pair.Value[0]);
-                var jpgBytes = File.ReadAllBytes(pair.Value[1]);
+                if (files.Count < 2) continue;
+
+                var file_path = string.Concat(save_path, "/", fileName, ".bytes").ToLower();
+                var pngBytes = File.ReadAllBytes(files[0]);
+                var jpgBytes = File.ReadAllBytes(files[1]);
                 using (var fs = new FileStream(file_path, FileMode.OpenOrCreate))
                 {
                     byte[] intPngBuff = BitConverter.GetBytes(pngBytes.Length);
                     fs.Write(intPngBuff, 0, 4);
                     fs.Write(pngBytes, 0, pngBytes.Length);
+
                     byte[] intJpgBuff = BitConverter.GetBytes(jpgBytes.Length);
                     fs.Write(intJpgBuff, 0, 4);
                     fs.Write(jpgBytes, 0, jpgBytes.Length);
                     fs.Flush();
                 }
                 index++;
-            }
-            AssetDatabase.Refresh();
+            } //end foreach
         }
+
     }
 }

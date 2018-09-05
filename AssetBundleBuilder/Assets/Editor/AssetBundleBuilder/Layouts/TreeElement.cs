@@ -12,7 +12,7 @@ namespace UnityEditor.CustomTreeView
         [SerializeField] int m_Depth;
         [NonSerialized] private TreeElement m_Parent;
         [NonSerialized] List<TreeElement> m_Children;
-        [SerializeField] bool m_Toggle;
+        [SerializeField] protected bool m_Toggle;
         [SerializeField] string m_guid;
 
         public int depth
@@ -55,7 +55,7 @@ namespace UnityEditor.CustomTreeView
             get { return m_guid; }
             set { m_guid = value; }
         }
-        public bool Toggle 
+        public virtual bool Toggle 
         {
             get { return m_Toggle; }
             set { m_Toggle = value; }

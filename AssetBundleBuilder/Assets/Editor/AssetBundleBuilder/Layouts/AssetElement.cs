@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq.Expressions;
 using UnityEditor;
 using UnityEditor.CustomTreeView;
 
@@ -15,6 +13,19 @@ namespace AssetBundleBuilder
         public FileType FileType { get; private set; }
 
         private string fileName;
+
+        public override bool Toggle {
+            get { return m_Toggle; }
+            set
+            {
+                m_Toggle = value;
+                if (children != null)
+                {
+                    foreach (TreeElement childEle in children)
+                        childEle.Toggle = value;
+                }
+            }
+        }
 
         public AssetElement(FileSystemInfo info)
         {

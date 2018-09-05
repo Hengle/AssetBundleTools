@@ -64,7 +64,7 @@ namespace AssetBundleBuilder
         static void ResetFlist()
         {
             string root = BuilderPreference.ASSET_PATH;
-            string flistPath = root + "/bundles/files.txt";
+            string flistPath = root + "/files.txt";
             string[] fs = File.ReadAllLines(flistPath);
             List<string> list = new List<string>();
             StringBuilder builder = new StringBuilder();
