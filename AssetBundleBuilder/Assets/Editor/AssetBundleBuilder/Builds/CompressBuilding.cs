@@ -31,7 +31,7 @@ namespace AssetBundleBuilder
             Directory.CreateDirectory(toPath);
 
             var dirInfo = new DirectoryInfo(fromPath);
-            Builder.AddBuildLog("Copying assets...");
+            Builder.AddBuildLog("<Compress Building> Copying assets...");
             int index = 0;
             FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
             foreach (var file in files)
@@ -95,7 +95,7 @@ namespace AssetBundleBuilder
             Directory.CreateDirectory(toPath);
 
             var dirInfo = new DirectoryInfo(fromPath);
-            Builder.AddBuildLog("Copying to temp assets...");
+            Builder.AddBuildLog("<Compress Building> Copying to temp assets...");
 
             int index = 0;
             FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);

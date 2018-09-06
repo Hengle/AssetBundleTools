@@ -16,7 +16,8 @@ namespace AssetBundleBuilder
 //            new GUIContent("Build Table" , "表格"), 
             "Build FullAssets", //"整包资源"
             "Build SubAssets" ,//"分包资源"
-            "Build SubPackage" ,// "分包APK", 
+            "Build SubPackage" ,// "分包APK",
+            "Build FullPackage" // 整包APP 
         };
 
 
@@ -25,7 +26,8 @@ namespace AssetBundleBuilder
             (int)Buildings.Lua,
             (int)Buildings.FullPackage,
             (int)Buildings.SubPackage,
-            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.SubPackage)
+            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.Compress|Buildings.SubPackage),
+            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.Compress|Buildings.FullPackage)
         };
 
         public int[] BuildPackageOpts = new[]
@@ -33,7 +35,8 @@ namespace AssetBundleBuilder
             0,
             0,
             0,
-            (int)PackageBuildings.BuildApp
+            (int)PackageBuildings.BuildApp,
+            (int)PackageBuildings.BuildApp,
         };
 
         public GUIContent[] OnekeyBuilds = new GUIContent[]

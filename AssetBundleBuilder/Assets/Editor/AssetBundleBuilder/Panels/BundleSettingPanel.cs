@@ -2,6 +2,7 @@
 using System.IO;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace AssetBundleBuilder
@@ -137,6 +138,7 @@ namespace AssetBundleBuilder
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("SDK Config", GUILayout.Width(100)))
             {
+                InternalEditorUtility.CanConnectToCacheServer();
                 Debug.Log("编辑打开！！！！");
             }
             GUI.backgroundColor = Color.red;

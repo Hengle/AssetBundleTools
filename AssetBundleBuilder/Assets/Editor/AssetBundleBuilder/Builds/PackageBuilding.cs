@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using Riverlake.Crypto;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 using ZstdNet;
 
@@ -29,9 +30,10 @@ namespace AssetBundleBuilder
         protected void CompressWithZSTD(long maxFileSize)
         {
             string outPutPath = BuilderPreference.StreamingAssetsPlatormPath;
-//            ABPackHelper.ShowProgress("Hold on...", 0);
+
             var dirInfo = new DirectoryInfo(outPutPath);
             var dirs = dirInfo.GetDirectories();
+
             Dictionary<int, List<string>> allFiles = new Dictionary<int, List<string>>();
             // data原始包控制在10M左右
             long curSize = 0;
@@ -39,7 +41,9 @@ namespace AssetBundleBuilder
             for (int i = 0; i < dirs.Length; ++i)
             {
                 if (dirs[i].Name == "lua") continue;
-                var abFileInfos = BuildUtil.SearchFiles(dirs[i].FullName , SearchOption.AllDirectories);
+
+                var abFileInfos = BuildUtil.SearchFiles(dirs[i].FullName, SearchOption.AllDirectories);
+
                 for (int j = 0; j < abFileInfos.Count; ++j)
                 {
                     var relativePath = abFileInfos[j];
@@ -62,6 +66,9 @@ namespace AssetBundleBuilder
                     curSize += data.Length;
                 }
             }
+
+
+            
             int index = 0;
 
             // 合并生成的bundle文件，合成10M左右的小包(二进制)
@@ -78,10 +85,11 @@ namespace AssetBundleBuilder
                 {
                     using (var writer = new BinaryWriter(fs))
                     {
-                        for (int i = 0; i < allFiles[key].Count; ++i)
+                        List<string> filePaths = allFiles[key];
+                        for (int i = 0; i < filePaths.Count; ++i)
                         {
-                            var bytes = File.ReadAllBytes(allFiles[key][i]);
-                            var abName = allFiles[key][i].Substring(pathLength);
+                            var bytes = File.ReadAllBytes(filePaths[i]);
+                            var abName = filePaths[i].Substring(pathLength);
                             writer.Write(abName);
                             writer.Write(bytes.Length);
                             writer.Write(bytes);
@@ -89,16 +97,19 @@ namespace AssetBundleBuilder
                     }
                 }
             }
-//            ABPackHelper.ShowProgress("Finished...", 1);
+            //            ABPackHelper.ShowProgress("Finished...", 1);
+
+            //删除子目录
             for (int i = 0; i < dirs.Length; ++i)
             {
                 if (dirs[i].Name == "lua") continue;
                 Directory.Delete(dirs[i].FullName, true);
             }
+            
             AssetDatabase.Refresh();
 
             // 对合并后的文件进行压缩
-            Builder.AddBuildLog("compress with zstd...");
+            Builder.AddBuildLog("<Copresss zstd> compress with zstd...");
             var pakFiles = Directory.GetFiles(outPutPath, "*.tmp", SearchOption.AllDirectories);
             for (int i = 0; i < pakFiles.Length; ++i)
             {
@@ -181,10 +192,10 @@ namespace AssetBundleBuilder
                         final_path = string.Concat(dir,"/", fileName, "_" ,time, flag, Builder.GameVersion.ToString(), ".apk");
                         if (File.Exists(final_path)) File.Delete(final_path);
                         // 写入并保存sdk启用配置
-//                        item.CopyConfig();
-//                        item.CopySDK();
-//                        item.SetPlayerSetting(curSdkConfig.splash_image);
-//                        item.SaveSDKConfig();
+                        item.CopyConfig();
+                        item.CopySDK();
+                        item.SetPlayerSetting(curSdkConfig.splash_image);
+                        item.SaveSDKConfig();
                         //item.SplitAssets(sdkConfig.split_assets);
                         if (item.update_along == 0 && forceUpdate)
                         {
@@ -197,7 +208,7 @@ namespace AssetBundleBuilder
                         final_path = string.Concat(dir, "/", fileName, "_", time, flag, Builder.GameVersion.ToString(), ".exe");
                         if (Directory.Exists(final_path)) Directory.Delete(final_path, true);
 
-//                        item.CopyConfig();
+                        item.CopyConfig();
                     }
                     AssetDatabase.Refresh();
 

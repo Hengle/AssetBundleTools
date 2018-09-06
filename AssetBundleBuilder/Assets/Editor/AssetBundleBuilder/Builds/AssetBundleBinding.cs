@@ -225,7 +225,7 @@ namespace AssetBundleBuilder
                     //存在多个场景引用，就打到公共场景资源包内
                     rule = new AssetBuildRule();
                     rule.Order = sceneOrder - 100;
-                    rule.AssetBundleName = "scene_publics";
+                    rule.AssetBundleName = "scenes/scene_publics";
                 }
             }
 

@@ -208,11 +208,12 @@ namespace AssetBundleBuilder
             if (isBuilding(buildings, Buildings.Compress))
                 this.AddBuilding(new CompressBuilding());
 
-            if(isBuilding(buildings, Buildings.SubPackage))
-                this.AddBuilding(new SubPackageBuilding(isEnableLayer(packageBuildings , (int)PackageBuildings.BuildApp)));
+            bool isBuildApp = isEnableLayer(packageBuildings, (int) PackageBuildings.BuildApp);
+            if (isBuilding(buildings, Buildings.SubPackage))
+                this.AddBuilding(new SubPackageBuilding(isBuildApp));
 
             if(isBuilding(buildings , Buildings.FullPackage))
-                this.AddBuilding(new FullPackageBuilding(false , false));
+                this.AddBuilding(new FullPackageBuilding(isBuildApp, false));
 
             this.StartBuild();
         }

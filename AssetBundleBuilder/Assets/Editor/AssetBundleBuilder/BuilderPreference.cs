@@ -52,7 +52,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(tempAssetPath))
                 {
-                    tempAssetPath = Path.Combine(Application.dataPath, "../../tempAssets2/" + PlatformTargetFolder);
+                    tempAssetPath = Path.Combine(Application.dataPath, "../../tempAssets/" + PlatformTargetFolder);
                     tempAssetPath = Path.GetFullPath(tempAssetPath).Replace("\\", "/");
                 }
                 return tempAssetPath;
@@ -66,7 +66,7 @@ namespace AssetBundleBuilder
             {
                 if (string.IsNullOrEmpty(assetsPath))
                 {
-                    assetsPath = Path.Combine(Application.dataPath, "../../assets2/" + PlatformTargetFolder);
+                    assetsPath = Path.Combine(Application.dataPath, "../../assets/" + PlatformTargetFolder);
                     assetsPath = Path.GetFullPath(assetsPath).Replace("\\", "/");
                 }
                 return assetsPath;
