@@ -5,8 +5,10 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using UnityEditorInternal;
 
 namespace AssetBundleBuilder
 {
@@ -738,6 +740,30 @@ namespace AssetBundleBuilder
             fs.Close();
         }
 
+
+        public static void DisableCacheServer()
+        {
+            bool connectCacheServer = InternalEditorUtility.CanConnectToCacheServer();
+            if (!connectCacheServer) return;
+
+            EditorPrefs.SetInt("CacheServerMode" , 2);
+            EditorPrefs.SetBool("CacheServerEnabled", false);
+
+            Debug.Log("CanConnectToCacheServer:" + InternalEditorUtility.CanConnectToCacheServer());
+        }
+
+        public static void ReflushPreference()
+        {
+            Assembly assembly = Assembly.GetAssembly(typeof(UnityEditor.EditorWindow));
+            Type type = assembly.GetType("UnityEditor.PreferencesWindow");
+            EditorWindow window = EditorWindow.GetWindow(type);
+            if (window != null)
+            {
+                FieldInfo refreshField = type.GetField("m_RefreshCustomPreferences", BindingFlags.NonPublic | BindingFlags.Instance);
+                refreshField.SetValue(window, true);                
+            }
+
+        }
 
         public enum PlatformType
         {

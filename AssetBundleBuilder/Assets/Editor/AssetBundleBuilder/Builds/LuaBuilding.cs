@@ -152,7 +152,9 @@ namespace AssetBundleBuilder
 
             if (BuildPipeline.BuildAssetBundles(output, buildArr, options, EditorUserBuildSettings.activeBuildTarget))
             {
-                string[] bundles = Directory.GetDirectories(output, "*.unity3d", SearchOption.AllDirectories);
+                string[] bundles = Directory.GetFiles(output, "*.unity3d", SearchOption.AllDirectories);
+
+                Builder.AddBuildLog("<Lua Building> Crypto lua files ! count is " + bundles.Length);
 
                 for (int i = 0; i < bundles.Length; i++)
                 {

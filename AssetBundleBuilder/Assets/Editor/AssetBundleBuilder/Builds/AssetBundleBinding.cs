@@ -47,6 +47,8 @@ namespace AssetBundleBuilder
                 this.Builder.CanleBuild();
             }
 
+            AssetDatabase.Refresh();
+
             yield return null;
 
             PackPlayerModelTexture();
@@ -118,7 +120,7 @@ namespace AssetBundleBuilder
                 if (fileAssetMap.Rule.BuildType == (int)BundleBuildType.Ignore) continue;
 
                 string[] dependency = AssetDatabase.GetDependencies(files[i]);
-                
+
                 for (int j = 0; j < dependency.Length; j++)
                 {
                     string relativePath = BuildUtil.Replace(dependency[j]);
@@ -147,7 +149,7 @@ namespace AssetBundleBuilder
             {
                 if (asset.Rule.BuildType == (int)BundleBuildType.Ignore || !asset.IsBinding) continue;
 
-//                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}", asset.AssetPath, asset.Rule.AssetBundleName));
+                //                Builder.AddBuildLog(string.Format("set assetbundle name , path {0} : {1}", asset.AssetPath, asset.Rule.AssetBundleName));
 
                 BuildUtil.SetAssetbundleName(asset.AssetPath, asset.Rule);
             }
@@ -171,7 +173,7 @@ namespace AssetBundleBuilder
         /// 向上递规查找打包规则
         /// </summary>
         /// <returns></returns>
-        private AssetBuildRule findRuleByPath(string filePath, Dictionary<string, List<AssetBuildRule>> ruleMap , FileType fileType)
+        private AssetBuildRule findRuleByPath(string filePath, Dictionary<string, List<AssetBuildRule>> ruleMap, FileType fileType)
         {
             if (string.IsNullOrEmpty(filePath)) return null;
 
@@ -187,14 +189,14 @@ namespace AssetBundleBuilder
 
             string parentPath = Path.GetDirectoryName(filePath);
 
-            return findRuleByPath(parentPath , ruleMap , fileType);
+            return findRuleByPath(parentPath, ruleMap, fileType);
         }
 
         /// <summary>
         /// 查找最小打包顺序的打包规则
         /// </summary>
         /// <returns></returns>
-        private AssetBuildRule findRuleByOrder(List<AssetMap> assets , AssetBuildRule srcRule)
+        private AssetBuildRule findRuleByOrder(List<AssetMap> assets, AssetBuildRule srcRule)
         {
             int minOrder = srcRule.Order;
             AssetBuildRule rule = srcRule;
@@ -240,7 +242,7 @@ namespace AssetBundleBuilder
             //设置依赖文件的Assetbundle名称
             foreach (AssetMap asset in files.Values)
             {
-                if(!asset.IsBinding)    continue;  //过滤非显示bundle rule下的资源
+                if (!asset.IsBinding) continue;  //过滤非显示bundle rule下的资源
 
                 List<AssetMap> dependencys = asset.Dependencys;
                 if (dependencys == null) continue;
@@ -252,11 +254,11 @@ namespace AssetBundleBuilder
 
                     AssetMap depAsset = dependencys[j];
                     //查询引用文件中最小的Order,使用最小Order的Assetbundle名称
-                    AssetBuildRule depAssetRule = findRuleByOrder(depAsset.References , depAsset.Rule);
+                    AssetBuildRule depAssetRule = findRuleByOrder(depAsset.References, depAsset.Rule);
 
                     if (depAssetRule == null || depAssetRule.BuildType == (int)BundleBuildType.Ignore) continue;
 
-//                    Builder.AddBuildLog(string.Format("set dep assetbundle name , path {0} : {1}", depAsset.AssetPath, depAssetRule.AssetBundleName));
+                    //                    Builder.AddBuildLog(string.Format("set dep assetbundle name , path {0} : {1}", depAsset.AssetPath, depAssetRule.AssetBundleName));
 
                     BuildUtil.SetAssetbundleName(importer, depAssetRule);
                 }
@@ -377,14 +379,18 @@ namespace AssetBundleBuilder
         {
             // 删除与主角合并Texture相关的AB
             string bundlePath = BuilderPreference.BUILD_PATH;
-            string[] tempFiles = Directory.GetFiles(bundlePath, "*.ab", SearchOption.AllDirectories)
+            string[] tempFiles = Directory.GetDirectories(bundlePath, "*", SearchOption.AllDirectories)
                                  .Where(f => f.Contains("_tmp")).ToArray();
+
+            Builder.AddBuildLog("<Assetbundle Building> delete tmp assets ..." + tempFiles.Length);
 
             for (int i = 0; i < tempFiles.Length; i++)
             {
+                string dirPath = BuildUtil.Replace(tempFiles[i]);
+                Directory.Delete(dirPath, true);
+
                 string relativePath = BuildUtil.RelativePaths(tempFiles[i]);
-                AssetDatabase.DeleteAsset(relativePath);
-                AssetDatabase.DeleteAsset(relativePath + ".manifest");
+                File.Delete(relativePath + ".meta");
             }
 
             //合并贴图

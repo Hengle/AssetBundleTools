@@ -131,14 +131,14 @@ namespace AssetBundleBuilder
             GUILayout.BeginHorizontal();
             GUILayout.Label("App   Version", GUILayout.MaxWidth(100));
             GUI.color = Color.gray;
-            GUILayout.TextField(Application.version);
+            GUILayout.TextField(mainBuilder.ApkVersion.ToString());
             GUI.color = Color.white;
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("SDK Config", GUILayout.Width(100)))
             {
-                InternalEditorUtility.CanConnectToCacheServer();
+                BuildUtil.DisableCacheServer();
                 Debug.Log("编辑打开！！！！");
             }
             GUI.backgroundColor = Color.red;

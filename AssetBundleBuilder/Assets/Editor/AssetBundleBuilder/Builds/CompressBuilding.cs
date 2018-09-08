@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 using ZstdNet;
 
@@ -12,15 +13,28 @@ namespace AssetBundleBuilder
     /// </summary>
     public class CompressBuilding : ABuilding
     {
+
+        private int compressIndex, totalCompressCount;
+
         public CompressBuilding() : base(20)
         {
         }
+
 
         public override IEnumerator OnBuilding()
         {
             //压缩资源
             CopyAssets(BuilderPreference.BUILD_PATH);
+
+            while (compressIndex < totalCompressCount)
+            {
+                yield return null;
+            }
+
+            ResetFlist();
+
             yield return null;
+
             CopyToTempAssets();
         }
 
@@ -34,6 +48,9 @@ namespace AssetBundleBuilder
             Builder.AddBuildLog("<Compress Building> Copying assets...");
             int index = 0;
             FileInfo[] files = dirInfo.GetFiles("*.*", SearchOption.AllDirectories);
+
+            List<string[]> comprssFiles = new List<string[]>();
+
             foreach (var file in files)
             {
                 index++;
@@ -48,18 +65,36 @@ namespace AssetBundleBuilder
 
                 if (relativePath.EndsWith(".ab"))
                 {
-                    using (var compressor = new Compressor(new CompressionOptions(CompressionOptions.MaxCompressionLevel)))
-                    {
-                        var buffer = compressor.Wrap(File.ReadAllBytes(relativePath));
-                        File.WriteAllBytes(to, buffer);
-                    }
+                    comprssFiles.Add(new []{relativePath , to});
                 }
                 else File.Copy(relativePath, to, true);
             }
-            ResetFlist();
-//            ShowProgress("", 1);
+
+            totalCompressCount = comprssFiles.Count;
+            compressIndex = 0;
+
+            for (int i = 0; i < comprssFiles.Count; i++)
+            {
+                ThreadPool.QueueUserWorkItem(onThreadCompress, comprssFiles[i]);
+            }
+            
         }
 
+
+        private void onThreadCompress(object filePath)
+        {
+            string[] paths = (string[]) filePath;
+            string relativePath = paths[0];
+            string to = paths[1];
+
+            using (var compressor = new Compressor(new CompressionOptions(CompressionOptions.MaxCompressionLevel)))
+            {
+                var buffer = compressor.Wrap(File.ReadAllBytes(relativePath));
+                File.WriteAllBytes(to, buffer);
+            }
+            
+            compressIndex++;
+        }
 
         static void ResetFlist()
         {

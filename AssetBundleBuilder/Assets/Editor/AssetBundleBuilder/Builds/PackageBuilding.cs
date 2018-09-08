@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using Riverlake.Crypto;
 using UnityEditor;
 using UnityEditorInternal;
@@ -18,12 +19,14 @@ namespace AssetBundleBuilder
     {
         protected bool isBuildApp;
 
+        protected int compressIndex, compressCount;
+
         public PackageBuilding(bool buildApp) : base(20)
         {
             this.isBuildApp = buildApp;
         }
 
-       /// <summary>
+        /// <summary>
         /// 压缩StreamAsset目录的资源
         /// </summary>
         /// <param name="maxFileSize"></param>
@@ -68,11 +71,13 @@ namespace AssetBundleBuilder
             }
 
 
-            
+
             int index = 0;
 
             // 合并生成的bundle文件，合成10M左右的小包(二进制)
             int pathLength = outPutPath.Length + 1;
+            Dictionary<string, byte[]> mergeFiles = new Dictionary<string, byte[]>();
+
             foreach (var key in allFiles.Keys)
             {
                 var tmpName = "data" + key;
@@ -80,8 +85,8 @@ namespace AssetBundleBuilder
             tmpName = IOSGenerateHelper.RenameResFileWithRandomCode(tmpName);
 #endif
                 var savePath = string.Format("{0}/{1}.tmp", outPutPath, tmpName);
-//                ABPackHelper.ShowProgress("Streaming data...", (float)index++ / (float)allFiles.Count);
-                using (var fs = new FileStream(savePath, FileMode.CreateNew))
+                //                ABPackHelper.ShowProgress("Streaming data...", (float)index++ / (float)allFiles.Count);
+                using (MemoryStream fs = new MemoryStream())
                 {
                     using (var writer = new BinaryWriter(fs))
                     {
@@ -95,6 +100,7 @@ namespace AssetBundleBuilder
                             writer.Write(bytes);
                         }
                     }
+                    mergeFiles[savePath] = fs.ToArray();
                 }
             }
             //            ABPackHelper.ShowProgress("Finished...", 1);
@@ -105,35 +111,32 @@ namespace AssetBundleBuilder
                 if (dirs[i].Name == "lua") continue;
                 Directory.Delete(dirs[i].FullName, true);
             }
-            
+
             AssetDatabase.Refresh();
 
             // 对合并后的文件进行压缩
             Builder.AddBuildLog("<Copresss zstd> compress with zstd...");
-            var pakFiles = Directory.GetFiles(outPutPath, "*.tmp", SearchOption.AllDirectories);
-            for (int i = 0; i < pakFiles.Length; ++i)
+            compressIndex = 0;
+            compressCount = mergeFiles.Count;
+
+            foreach (string filePath in mergeFiles.Keys)
             {
-                var savePath = string.Format("{0}/{1}.bin", outPutPath, Path.GetFileNameWithoutExtension(pakFiles[i]));
-//                ABPackHelper.ShowProgress("compress with zstd...", (float)i / (float)pakFiles.Length);
-                var fileName = BuildUtil.RelativePaths(pakFiles[i]);
-                using (var compressFs = new FileStream(savePath, FileMode.CreateNew))
-                {
-                    using (var compressor = new Compressor(new CompressionOptions(CompressionOptions.MaxCompressionLevel)))
-                    {
-                        var bytes = compressor.Wrap(File.ReadAllBytes(fileName));
-#if UNITY_IOS
-                        bytes = Crypto.Encode(bytes);
-#endif
-                        compressFs.Write(bytes, 0, bytes.Length);
-                    }
-                }
-                File.Delete(fileName);
+                ThreadPool.QueueUserWorkItem(onThreadCompress, new object[] { filePath, outPutPath, mergeFiles[filePath] });
             }
-            AssetDatabase.Refresh();
-            
-            // 生成包体第一次进入游戏解压缩配置文件
+
+        }
+
+        /// <summary>
+        /// 生成包体第一次进入游戏解压缩配置文件
+        /// </summary>
+        protected void genPacklistFile()
+        {
             StringBuilder builder = new StringBuilder();
+            string outPutPath = BuilderPreference.StreamingAssetsPlatormPath;
+
             List<string> allfiles = BuildUtil.SearchFiles(outPutPath, SearchOption.AllDirectories);
+
+            int pathLength = outPutPath.Length + 1;
             for (int i = 0; i < allfiles.Count; ++i)
             {
                 if (allfiles[i].EndsWith("datamap.ab")) continue;
@@ -141,13 +144,35 @@ namespace AssetBundleBuilder
                 var relativePath = allfiles[i].Substring(pathLength);
                 string md5 = MD5.ComputeHashString(allfiles[i]);
 
-                builder.AppendLine(string.Format("{0}|{1}" ,relativePath , md5));
+                builder.AppendLine(string.Format("{0}|{1}", relativePath, md5));
             }
 
             var packFlistPath = outPutPath + "/packlist.txt";
             File.WriteAllText(packFlistPath, builder.ToString());
+        }
 
-            AssetDatabase.Refresh();
+
+        protected void onThreadCompress(object fileInfos)
+        {
+            object[] fileInfoArr = (object[])fileInfos;
+            string filePath = (string)fileInfoArr[0];
+            string outPutPath = (string)fileInfoArr[1];
+            byte[] fileBytes = (byte[])fileInfoArr[2];
+
+            var savePath = string.Format("{0}/{1}.bin", outPutPath, Path.GetFileNameWithoutExtension(filePath));
+
+            using (var compressFs = new FileStream(savePath, FileMode.CreateNew))
+            {
+                using (var compressor = new Compressor(new CompressionOptions(CompressionOptions.MaxCompressionLevel)))
+                {
+                    var bytes = compressor.Wrap(fileBytes);
+#if UNITY_IOS
+                        bytes = Crypto.Encode(bytes);
+#endif
+                    compressFs.Write(bytes, 0, bytes.Length);
+                }
+            }
+            compressIndex++;
         }
 
 
@@ -159,7 +184,7 @@ namespace AssetBundleBuilder
             if (Builder.IsDebug) option |= BuildOptions.AllowDebugging;
             if (Builder.IsBuildDev) option |= BuildOptions.Development;
             if (Builder.IsAutoConnectProfile) option |= BuildOptions.ConnectWithProfiler;
-            
+
             string dir = Path.GetDirectoryName(Builder.ApkSavePath);
             string fileName = Path.GetFileNameWithoutExtension(Builder.ApkSavePath);
             string time = DateTime.Now.ToString("yyyyMMdd");
@@ -186,16 +211,16 @@ namespace AssetBundleBuilder
                     else
                         flag = packAllRes ? "_allpack_test_v" : "_subpack_test_v";
 
-                    
+
                     if (buildTarget == BuildTarget.Android)
                     {
-                        final_path = string.Concat(dir,"/", fileName, "_" ,time, flag, Builder.GameVersion.ToString(), ".apk");
+                        final_path = string.Concat(dir, "/", fileName, "_", time, flag, Builder.GameVersion.ToString(), ".apk");
                         if (File.Exists(final_path)) File.Delete(final_path);
                         // 写入并保存sdk启用配置
-                        item.CopyConfig();
-                        item.CopySDK();
-                        item.SetPlayerSetting(curSdkConfig.splash_image);
-                        item.SaveSDKConfig();
+//                        item.CopyConfig();
+//                        item.CopySDK();
+//                        item.SetPlayerSetting(curSdkConfig.splash_image);
+//                        item.SaveSDKConfig();
                         //item.SplitAssets(sdkConfig.split_assets);
                         if (item.update_along == 0 && forceUpdate)
                         {
@@ -233,14 +258,14 @@ namespace AssetBundleBuilder
                     PlayerSettings.productName = configItem.product_name;
                     configItem.CopyConfig();
                 }
-//                IOSGenerateHelper.IOSConfusing();
+                //                IOSGenerateHelper.IOSConfusing();
                 AssetDatabase.Refresh();
                 BuildPipeline.BuildPlayer(GetBuildScenes(), Builder.ApkSavePath, buildTarget, option);
             }
 
             Resources.UnloadUnusedAssets();
             GC.Collect();
-            
+
             Builder.AddBuildLog("[end]Build App Finish !...");
             return final_path;
         }
@@ -248,19 +273,19 @@ namespace AssetBundleBuilder
 
         public string[] GetBuildScenes()
         {
-            HashSet<string> validSceneNames = new HashSet<string>(new [] { "startscene", "updatescene", "preloadingscene",
+            HashSet<string> validSceneNames = new HashSet<string>(new[] { "startscene", "updatescene", "preloadingscene",
                                                                            "createrolescene", "preloginscene", "preloadingchunkscene" });
             List<string> names = new List<string>();
             foreach (EditorBuildSettingsScene e in EditorBuildSettings.scenes)
             {
-                if (e == null || !e.enabled)  continue;
-                
+                if (e == null || !e.enabled) continue;
+
                 string name = Path.GetFileNameWithoutExtension(e.path).ToLower();
                 if (validSceneNames.Contains(name))
                     names.Add(e.path);
             }
 
-            if(names.Count <= 0)
+            if (names.Count <= 0)
                 Debug.LogError("Cant find build scene !");
 
             return names.ToArray();

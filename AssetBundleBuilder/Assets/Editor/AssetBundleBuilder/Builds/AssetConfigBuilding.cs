@@ -101,6 +101,8 @@ namespace AssetBundleBuilder
         /// </summary>
         private void BuildBundleNameMapFile()
         {
+            if (Builder.AssetMaps == null) return;
+
             string savePath = BuilderPreference.BUILD_PATH + "/bundlemap.ab";
             StringBuilder sb = new StringBuilder();
             
@@ -166,10 +168,8 @@ namespace AssetBundleBuilder
 
             foreach (AssetBuildRule bundle in ruleMap.Values)
             {
-                // fileName|AssetType:value|DownloadOrder:value
-                // todo AssetType 暂时没支持
                 string format = string.Format("{0}|AssetType:{1}|DownloadOrder:{2}", 
-                                              BuildUtil.FormatBundleName(bundle), 0,  bundle.DownloadOrder);
+                                              BuildUtil.FormatBundleName(bundle), (int)bundle.PackageType,  bundle.DownloadOrder);
                 sb.AppendLine(format);
             }
 

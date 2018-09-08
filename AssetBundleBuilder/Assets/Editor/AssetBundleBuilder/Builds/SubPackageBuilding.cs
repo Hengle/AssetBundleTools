@@ -23,6 +23,14 @@ namespace AssetBundleBuilder
 
             CompressWithZSTD(1024 * 1024 * 10);
 
+            while (compressIndex < compressCount)
+            {
+                yield return null;
+            }
+
+            AssetDatabase.Refresh();
+
+            genPacklistFile();
 
             Builder.AddBuildLog("<SubPackage Building>Compress Zstd Finished...");
 
@@ -32,7 +40,7 @@ namespace AssetBundleBuilder
             {
                 BuildApp(false, false);
 
-                Builder.AddBuildLog("<SubPackage Building>Build App  Finished...");                
+                Builder.AddBuildLog("<SubPackage Building>Build App  Finished...");
             }
         }
 
@@ -105,7 +113,7 @@ namespace AssetBundleBuilder
             string luaBundlePath = string.Concat(bundlePath, "/lua");
             files = BuildUtil.SearchIncludeFiles(luaBundlePath, SearchOption.AllDirectories, includeExtensions);
             copyFiles(files, luaBundlePath);
-            
+
             Builder.AddBuildLog("<Sub Package Building>Copy sub package files ...");
 
             AssetDatabase.Refresh();

@@ -18,7 +18,7 @@ namespace AssetBundleBuilder
             get { return builder; }
         }
         
-        [MenuItem("[Build]/Asset Bundle Builder")]
+        [MenuItem("AssetBundlePacker/Asset Bundle Builder" ,false, 31)]
         public static void ShowWindow()
         {
             AssetBundleBuilderWindow window = EditorWindow.GetWindow<AssetBundleBuilderWindow>("Bundle Builder");

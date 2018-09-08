@@ -38,8 +38,9 @@ namespace AssetBundleBuilder
         {
             string configPath = BuilderPreference.DEFAULT_CONFIG_NAME;
             if (!File.Exists(configPath)) return;
-            
-            ABConfigs configs = AssetDatabase.LoadAssetAtPath<ABConfigs>(configPath);
+
+            ABConfigs srcConfigs = AssetDatabase.LoadAssetAtPath<ABConfigs>(configPath);
+            ABConfigs configs = ScriptableObject.Instantiate(srcConfigs);
 
             AssetBuildRule[] configRules = configs.Rules;
             Array.Sort(configRules, (x, y) => x.Path.Length.CompareTo(y.Path.Length));

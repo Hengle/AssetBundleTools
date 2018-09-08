@@ -80,13 +80,13 @@ namespace AssetBundleBuilder
 
         private string UseTimeText()
         {
-            double useTime = this.mainBuilder.UseTime;//(秒)
-
-            int millSeconds = (int)useTime%1000;
-            int seconds = (int)((useTime / 1000) % 60);
-            int min = ((int)(useTime/1000)/3600)%60;
+            double useTime = this.mainBuilder.UseTime;//(毫秒)
+            double totalSeconds = useTime/1000;
             
-            return string.Format("Total use time :{0:D2}:{1:D2}:{2:D3}", min, seconds , millSeconds);
+            int seconds = (int)(totalSeconds % 60);
+            int min = (int)(totalSeconds / 3600)%60;
+            
+            return string.Format("Total use time :{0:D2}:{1:D2}", min, seconds);
         }
     }
 }

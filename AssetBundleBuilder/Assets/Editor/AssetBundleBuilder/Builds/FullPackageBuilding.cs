@@ -17,7 +17,7 @@ namespace AssetBundleBuilder
     {
         private bool isForceUpdate;
 
-        public FullPackageBuilding(bool buildApp , bool forceUpdate) : base(buildApp)
+        public FullPackageBuilding(bool buildApp, bool forceUpdate) : base(buildApp)
         {
             this.isForceUpdate = forceUpdate;
         }
@@ -30,6 +30,14 @@ namespace AssetBundleBuilder
 
             CompressWithZSTD(1024 * 1024 * 5);
 
+            while (compressIndex < compressCount)
+            {
+                yield return null;
+            }
+
+            AssetDatabase.Refresh();
+
+            genPacklistFile();
             Builder.AddBuildLog("<FullPackage Building> Compress zstd finish !");
 
             yield return null;
@@ -49,32 +57,32 @@ namespace AssetBundleBuilder
         private void CopyAllBundles()
         {
             string targetPath = BuilderPreference.StreamingAssetsPlatormPath;
-            if (Directory.Exists(targetPath))   Directory.Delete(targetPath, true);
+            if (Directory.Exists(targetPath)) Directory.Delete(targetPath, true);
             Directory.CreateDirectory(targetPath);
-            
+
             string buildPath = BuilderPreference.BUILD_PATH;
             HashSet<string> withExtensions = new HashSet<string>() { ".ab", ".unity3d", ".txt", ".conf", ".pb", ".bytes" };
-            List<string> files = BuildUtil.SearchIncludeFiles(buildPath, SearchOption.AllDirectories , withExtensions);
+            List<string> files = BuildUtil.SearchIncludeFiles(buildPath, SearchOption.AllDirectories, withExtensions);
 
             Builder.AddBuildLog("<FullPackage Building> Copy all bundle ...");
-//            int buildPathLength = buildPath.Length + 1; 
+            //            int buildPathLength = buildPath.Length + 1; 
             for (int i = 0; i < files.Count; ++i)
             {
                 string fileName = Path.GetFileName(files[i]);
                 if (fileName == "tempsizefile.txt" || fileName == "luamd5.txt") continue;
                 //ABPackHelper.ShowProgress("Copying files...", (float)i / (float)files.Length);
-                
+
                 string streamBundlePath = files[i].Replace(buildPath, targetPath);
 
                 BuildUtil.SwapPathDirectory(streamBundlePath);
-                
+
                 File.Copy(files[i], streamBundlePath);
             }
             AssetDatabase.Refresh();
-//            ABPackHelper.ShowProgress("", 1);
+            //            ABPackHelper.ShowProgress("", 1);
         }
-        
-        
+
+
         void ResetConfig()
         {
             string resources_path = "Assets/Resources/";
