@@ -23,11 +23,11 @@ namespace AssetBundleBuilder
 
         public int[] BuildingOpts = new[]
         {
-            (int)Buildings.Lua,
+            (int)(Buildings.Lua|Buildings.AssetConfig),
             (int)Buildings.FullPackage,
             (int)Buildings.SubPackage,
-            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.Compress|Buildings.SubPackage),
-            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.Compress|Buildings.FullPackage)
+            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.AssetConfig|Buildings.Compress|Buildings.SubPackage),
+            (int)(Buildings.Assetbundle|Buildings.Lua|Buildings.AssetConfig|Buildings.Compress|Buildings.FullPackage)
         };
 
         public int[] BuildPackageOpts = new[]
@@ -41,17 +41,17 @@ namespace AssetBundleBuilder
 
         public GUIContent[] OnekeyBuilds = new GUIContent[]
         {
-            new GUIContent("All Build"),
-            new GUIContent("All Assets Build"),
-            new GUIContent("All Package Build"),   
+            new GUIContent("Sub & Full Package"),
+            new GUIContent("All Update Assets"),
+            new GUIContent("All Update Package"),   
         };
 
 
         public int[] AutoBuilds = new int[]
         {
-            (int)(PackageBuildings.SubPackage | PackageBuildings.FullPackage), 
+            (int)(PackageBuildings.SubPackage | PackageBuildings.FullPackage | PackageBuildings.BuildApp), 
             (int)(PackageBuildings.FullPackage | PackageBuildings.BuildApp),
-            (int)(PackageBuildings.FullPackage | PackageBuildings.ForceUpdate ), 
+            (int)(PackageBuildings.FullPackage | PackageBuildings.ForceUpdate | PackageBuildings.BuildApp ), 
         };
 
 

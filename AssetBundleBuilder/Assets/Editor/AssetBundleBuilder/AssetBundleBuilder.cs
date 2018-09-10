@@ -202,7 +202,7 @@ namespace AssetBundleBuilder
             if (isBuilding(buildings, Buildings.Lua))
                 this.AddBuilding(new LuaBuilding());
 
-            if (isBuilding(buildings, Buildings.Assetbundle) || isBuilding(buildings, Buildings.Lua))
+            if (isBuilding(buildings, Buildings.AssetConfig))
                 this.AddBuilding(new AssetConfigBuilding());
 
             if (isBuilding(buildings, Buildings.Compress))
@@ -261,6 +261,8 @@ namespace AssetBundleBuilder
             this.mainWindow.SetPanelState(EToolbar.Building);
             startTime = DateTime.Now;
 
+            BuildUtil.DisableCacheServer();
+
             EditorCoroutines.StartCoroutine(this.onUpdateBuilding(), this.mainWindow);
         }
 
@@ -283,6 +285,8 @@ namespace AssetBundleBuilder
 
         public IEnumerator onUpdateBuilding()
         {
+            yield return new WaitForSeconds(0.1f);
+
             using (new LockAssemblies())
             {
                 while (true)

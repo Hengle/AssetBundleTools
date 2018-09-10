@@ -91,6 +91,8 @@ namespace AssetBundleBuilder
                 for (int i = 0; i < filePaths.Count; i++)
                 {
                     string relativePath = filePaths[i];
+                    if (!File.Exists(relativePath)) continue;
+
                     string streamBundlePath = relativePath.Replace(rootPath, targetPath);
 
                     BuildUtil.SwapPathDirectory(streamBundlePath);
@@ -104,7 +106,9 @@ namespace AssetBundleBuilder
             string[] copyTargetPaths = new[]
             {
                 string.Concat(bundlePath, "/files.txt"),
-                string.Concat(bundlePath , "/bundlemap.ab")
+                string.Concat(bundlePath , "/bundlemap.ab"),
+                string.Concat(bundlePath , "/font.ab"),
+                string.Concat(bundlePath , "/shader.ab"),
             };
             List<string> files = new List<string>(copyTargetPaths);
             copyFiles(files, bundlePath);

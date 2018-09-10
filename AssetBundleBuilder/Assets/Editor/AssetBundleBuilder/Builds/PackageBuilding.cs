@@ -37,6 +37,8 @@ namespace AssetBundleBuilder
             var dirInfo = new DirectoryInfo(outPutPath);
             var dirs = dirInfo.GetDirectories();
 
+
+
             Dictionary<int, List<string>> allFiles = new Dictionary<int, List<string>>();
             // data原始包控制在10M左右
             long curSize = 0;
@@ -69,61 +71,24 @@ namespace AssetBundleBuilder
                     curSize += data.Length;
                 }
             }
-
-
-
-            int index = 0;
-
+            
             // 合并生成的bundle文件，合成10M左右的小包(二进制)
-            int pathLength = outPutPath.Length + 1;
-            Dictionary<string, byte[]> mergeFiles = new Dictionary<string, byte[]>();
+            Builder.AddBuildLog("<Copresss zstd> merge and compress with zstd...");
+            compressIndex = 0;
+            compressCount = allFiles.Count;
 
             foreach (var key in allFiles.Keys)
             {
                 var tmpName = "data" + key;
 #if UNITY_IOS
-            tmpName = IOSGenerateHelper.RenameResFileWithRandomCode(tmpName);
+                tmpName = IOSGenerateHelper.RenameResFileWithRandomCode(tmpName);
 #endif
                 var savePath = string.Format("{0}/{1}.tmp", outPutPath, tmpName);
-                //                ABPackHelper.ShowProgress("Streaming data...", (float)index++ / (float)allFiles.Count);
-                using (MemoryStream fs = new MemoryStream())
-                {
-                    using (var writer = new BinaryWriter(fs))
-                    {
-                        List<string> filePaths = allFiles[key];
-                        for (int i = 0; i < filePaths.Count; ++i)
-                        {
-                            var bytes = File.ReadAllBytes(filePaths[i]);
-                            var abName = filePaths[i].Substring(pathLength);
-                            writer.Write(abName);
-                            writer.Write(bytes.Length);
-                            writer.Write(bytes);
-                        }
-                    }
-                    mergeFiles[savePath] = fs.ToArray();
-                }
+
+                List<string> mergePaths = allFiles[key];
+                
+                ThreadPool.QueueUserWorkItem(onThreadCompress, new object[] { savePath, outPutPath, mergePaths });
             }
-            //            ABPackHelper.ShowProgress("Finished...", 1);
-
-            //删除子目录
-            for (int i = 0; i < dirs.Length; ++i)
-            {
-                if (dirs[i].Name == "lua") continue;
-                Directory.Delete(dirs[i].FullName, true);
-            }
-
-            AssetDatabase.Refresh();
-
-            // 对合并后的文件进行压缩
-            Builder.AddBuildLog("<Copresss zstd> compress with zstd...");
-            compressIndex = 0;
-            compressCount = mergeFiles.Count;
-
-            foreach (string filePath in mergeFiles.Keys)
-            {
-                ThreadPool.QueueUserWorkItem(onThreadCompress, new object[] { filePath, outPutPath, mergeFiles[filePath] });
-            }
-
         }
 
         /// <summary>
@@ -133,6 +98,15 @@ namespace AssetBundleBuilder
         {
             StringBuilder builder = new StringBuilder();
             string outPutPath = BuilderPreference.StreamingAssetsPlatormPath;
+
+            //删除子目录
+            string[] dirs = Directory.GetDirectories(outPutPath);
+            for (int i = 0; i < dirs.Length; ++i)
+            {
+                if (dirs[i].Contains("lua")) continue;
+
+                Directory.Delete(dirs[i], true);
+            }
 
             List<string> allfiles = BuildUtil.SearchFiles(outPutPath, SearchOption.AllDirectories);
 
@@ -157,8 +131,27 @@ namespace AssetBundleBuilder
             object[] fileInfoArr = (object[])fileInfos;
             string filePath = (string)fileInfoArr[0];
             string outPutPath = (string)fileInfoArr[1];
-            byte[] fileBytes = (byte[])fileInfoArr[2];
+            List<string> mergeFiles = (List<string>)fileInfoArr[2];
 
+            int pathLength = outPutPath.Length + 1;
+            byte[] fileBytes = null;
+            using (MemoryStream fs = new MemoryStream())
+            {
+                using (var writer = new BinaryWriter(fs))
+                {
+                    for (int i = 0; i < mergeFiles.Count; ++i)
+                    {
+                        var bytes = File.ReadAllBytes(mergeFiles[i]);
+                        var abName = mergeFiles[i].Substring(pathLength);
+                        writer.Write(abName);
+                        writer.Write(bytes.Length);
+                        writer.Write(bytes);
+                    }
+                }
+                fileBytes = fs.ToArray();
+            }
+
+            //compress 
             var savePath = string.Format("{0}/{1}.bin", outPutPath, Path.GetFileNameWithoutExtension(filePath));
 
             using (var compressFs = new FileStream(savePath, FileMode.CreateNew))
